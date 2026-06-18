@@ -1,11 +1,12 @@
 <template>
   <div class="h-screen flex flex-col bg-white dark:bg-gray-900">
-    <header class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-      <div class="flex items-center gap-3">
+    <header class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+      <div class="flex items-center gap-3 flex-1">
         <Button label="返回" severity="secondary" size="small" text @click="goBack" />
         <InputText v-model="siteTitle" class="w-40 text-xs" @change="handleTitleChange" />
       </div>
-      <div class="flex items-center gap-2">
+
+      <div class="flex items-center justify-center flex-1">
         <SelectButton
           v-model="appStore.deviceMode"
           :options="devices"
@@ -13,6 +14,9 @@
           option-label="label"
           size="small"
         />
+      </div>
+
+      <div class="flex items-center gap-2 justify-end flex-1">
         <Button
           :icon="appStore.themeMode === 'light' ? 'pi pi-moon' : 'pi pi-sun'"
           severity="secondary"
@@ -95,7 +99,7 @@ const LEFT_MAX = 384
 const RIGHT_MIN = 224
 const RIGHT_MAX = 480
 
-const leftPanelWidth = ref('14rem')
+const leftPanelWidth = ref('250px')
 const rightPanelWidth = ref('300px')
 const resizing = ref<'left' | 'right' | null>(null)
 

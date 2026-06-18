@@ -13,6 +13,8 @@ export const panelMeta: ComponentMeta = {
   defaultStyles: {
     class: 'w-full',
   },
+  defaultWidth: 300,
+  defaultHeight: 200,
   propsPanel: [
     { key: 'header', label: '标题', control: 'text-input' },
     { key: 'toggleable', label: '可折叠', control: 'switch' },

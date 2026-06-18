@@ -39,3 +39,14 @@ _Avoid_: 自由像素定位, 纯流式堆叠
 **Theme（主题）**:
 暗色模式通过 `<html class="dark">` 配合 Tailwind `dark:` 变体实现，与 PrimeVue Tailwind Preset 原生兼容。
 _Avoid_: PrimeVue 自带两套 CSS 文件切换
+
+**Component Category（组件分类）**:
+编辑器左侧面板将组件按功能分为三类：布局类（Card、Panel、ScrollPanel）、内容类（Image）、交互类（Button）。每类有独立标题，下方 3 列 grid 排列。该分类仅用于编辑器 UI 组织，不影响运行时渲染。
+
+**Dot Grid Canvas（点阵画布）**:
+Canvas 背景使用 CSS `radial-gradient` 实现 10px 间距的浅灰点阵网格，模拟设计工具的"图纸"背景。点阵仅作为背景装饰，不参与交互，不随设备模式缩放。
+_Avoid_: 网格线交叉的坐标系, SVG 网格覆盖层
+
+**Free-Form Canvas（自由定位画布）**:
+Canvas 中的根级组件采用绝对定位（left/top/width/height），通过 moveable 驱动拖拽和缩放。拖拽和缩放均吸附到 20px 网格，8 控制点缩放。插槽内的嵌套子组件保持流式垂直堆叠（vue-draggable-plus）。
+_Avoid_: 所有组件统一自由定位, 完全像素自由无吸附

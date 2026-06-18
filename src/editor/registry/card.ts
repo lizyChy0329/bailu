@@ -10,6 +10,8 @@ export const cardMeta: ComponentMeta = {
   defaultStyles: {
     class: 'w-full',
   },
+  defaultWidth: 300,
+  defaultHeight: 200,
   propsPanel: [
     { key: 'unstyled', label: '移除默认样式', control: 'switch' },
   ],

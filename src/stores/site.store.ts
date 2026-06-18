@@ -58,7 +58,7 @@ export const useSiteStore = defineStore('site', () => {
     await saveSite(currentSite.value)
   }
 
-  function addComponent(type: ComponentType) {
+  function addComponent(type: ComponentType, options?: { x?: number; y?: number; width?: number; height?: number }) {
     if (!currentSite.value) return
     const meta = getComponentMeta(type)
     if (!meta) return
@@ -74,6 +74,12 @@ export const useSiteStore = defineStore('site', () => {
       for (const slot of meta.slots) {
         node.slots[slot.name] = []
       }
+    }
+    if (options) {
+      node.x = options.x
+      node.y = options.y
+      node.width = options.width
+      node.height = options.height
     }
     currentSite.value.components.push(node)
   }
