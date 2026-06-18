@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bailu Viewer</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div style="text-align: center; padding: 40px;">
+      <h2>Bailu 页面查看器</h2>
+      <p>请选择一个 JSON 配置文件夹查看渲染效果</p>
+      <input type="file" id="fileInput" accept=".json" />
+      <div id="preview"></div>
+    </div>
+  </div>
+</body>
+</html>

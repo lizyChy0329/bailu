@@ -1,0 +1,24 @@
+import type { ComponentMeta } from '@/shared/types/component'
+
+export const cardMeta: ComponentMeta = {
+  type: 'Card',
+  label: '卡片',
+  icon: 'pi pi-id-card',
+  defaultProps: {},
+  defaultStyles: {
+    class: 'w-full',
+  },
+  propsPanel: [],
+  slots: [
+    { name: 'header', label: '头部', allowsChildren: true },
+    { name: 'title', label: '标题', allowsChildren: false },
+    { name: 'subtitle', label: '副标题', allowsChildren: false },
+    { name: 'content', label: '内容', allowsChildren: true },
+    { name: 'footer', label: '底部', allowsChildren: true },
+  ],
+  ptNodes: [
+    { name: 'root', label: '容器' },
+    { name: 'header', label: '头部容器' },
+    { name: 'body', label: '主体容器' },
+  ],
+}
