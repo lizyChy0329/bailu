@@ -4,11 +4,15 @@ export const cardMeta: ComponentMeta = {
   type: 'Card',
   label: '卡片',
   icon: 'pi pi-id-card',
-  defaultProps: {},
+  defaultProps: {
+    unstyled: false,
+  },
   defaultStyles: {
     class: 'w-full',
   },
-  propsPanel: [],
+  propsPanel: [
+    { key: 'unstyled', label: '移除默认样式', control: 'switch' },
+  ],
   slots: [
     { name: 'header', label: '头部', allowsChildren: true },
     { name: 'title', label: '标题', allowsChildren: false },

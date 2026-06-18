@@ -8,6 +8,7 @@ export const panelMeta: ComponentMeta = {
     header: '面板标题',
     toggleable: true,
     collapsed: false,
+    unstyled: false,
   },
   defaultStyles: {
     class: 'w-full',
@@ -15,6 +16,7 @@ export const panelMeta: ComponentMeta = {
   propsPanel: [
     { key: 'header', label: '标题', control: 'text-input' },
     { key: 'toggleable', label: '可折叠', control: 'switch' },
+    { key: 'unstyled', label: '移除默认样式', control: 'switch' },
   ],
   slots: [
     { name: 'header', label: '标题区域', allowsChildren: true },

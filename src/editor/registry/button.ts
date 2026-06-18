@@ -9,6 +9,7 @@ export const buttonMeta: ComponentMeta = {
     icon: '',
     severity: 'secondary',
     variant: 'outlined',
+    unstyled: false,
   },
   defaultStyles: {
     class: 'w-full',
@@ -39,6 +40,7 @@ export const buttonMeta: ComponentMeta = {
         { label: '链接', value: 'link' },
       ],
     },
+    { key: 'unstyled', label: '移除默认样式', control: 'switch' },
   ],
   ptNodes: [
     { name: 'root', label: '容器' },

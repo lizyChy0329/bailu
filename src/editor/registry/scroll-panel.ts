@@ -4,11 +4,15 @@ export const scrollPanelMeta: ComponentMeta = {
   type: 'ScrollPanel',
   label: '滚动面板',
   icon: 'pi pi-window-maximize',
-  defaultProps: {},
+  defaultProps: {
+    unstyled: false,
+  },
   defaultStyles: {
     class: 'w-full h-48',
   },
-  propsPanel: [],
+  propsPanel: [
+    { key: 'unstyled', label: '移除默认样式', control: 'switch' },
+  ],
   ptNodes: [
     { name: 'root', label: '容器' },
     { name: 'content', label: '内容区' },

@@ -11,6 +11,7 @@ export const imageMeta: ComponentMeta = {
     previewIcon: '',
     zoomInDisabled: false,
     zoomOutDisabled: false,
+    unstyled: false,
   },
   defaultStyles: {
     class: '',
@@ -22,6 +23,7 @@ export const imageMeta: ComponentMeta = {
     { key: 'previewIcon', label: '预览图标', control: 'text-input' },
     { key: 'zoomInDisabled', label: '禁止放大', control: 'switch' },
     { key: 'zoomOutDisabled', label: '禁止缩小', control: 'switch' },
+    { key: 'unstyled', label: '移除默认样式', control: 'switch' },
   ],
   slots: [
     { name: 'image', label: '缩略图模板', allowsChildren: true },
