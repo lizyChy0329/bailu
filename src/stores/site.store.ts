@@ -1,70 +1,42 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { defineStore } from 'pinia'; import { ref, computed, toRaw } from 'vue'
 import { getComponentMeta } from '@/editor/registry'
 import type { ComponentNode, ComponentType } from '@/shared/types/component'
-let _idCounter = 0
-function generateId(): string { return `comp_${++_idCounter}_${Date.now()}` }
-import { loadSite as dbLoadSite, saveSite } from '@/db'
+let _ic = 0
+function genId(): string { return `comp_${++_ic}_${Date.now()}` }
+import { loadSite as _ls, loadAllSites as _las, saveSite as _ss, deleteSite as _ds } from '@/db'
 export interface Site { id: string; title: string; components: ComponentNode[]; createdAt: number; updatedAt: number }
 export const useSiteStore = defineStore('site', () => {
-  const currentSite = ref<Site | null>(null)
-  const selectedComponentId = ref<string | null>(null)
-  const selectedComponent = computed(() => {
-    if (!currentSite.value || !selectedComponentId.value) return null
-    return findNode(selectedComponentId.value, currentSite.value.components)
-  })
-  function findNode(id: string, nodes: ComponentNode[]): ComponentNode | null {
-    for (const n of nodes) {
-      if (n.id === id) return n
-      if (n.slots) { for (const children of Object.values(n.slots)) { const f = findNode(id, children); if (f) return f } }
-    }
-    return null
+  const sites = ref<Site[]>([]); const cs = ref<Site | null>(null); const scid = ref<string | null>(null)
+  async function loadSites() { sites.value = await _las() as any }
+  async function createSite() { const id = `s_${Date.now()}_${Math.random().toString(36).slice(2,8)}`; const s: Site = {id,title:'新建站点',components:[],createdAt:Date.now(),updatedAt:Date.now()}; await _ss(structuredClone(toRaw(s))); sites.value.push(s as any); return id }
+  async function deleteSiteById(id: string) { await _ds(id); sites.value = sites.value.filter(s => s.id !== id) }
+  const selectedComponent = computed(() => { if (!cs.value || !scid.value) return null; return fn(scid.value, cs.value.components) })
+  function fn(id: string, nodes: ComponentNode[]): ComponentNode | null {
+    for (const n of nodes) { if (n.id === id) return n; if (n.slots) { for (const ch of Object.values(n.slots)) { const f = fn(id, ch); if (f) return f } } }; return null
   }
-  function removeFromTree(id: string): ComponentNode | null {
-    if (!currentSite.value) return null
-    const idx = currentSite.value.components.findIndex(c => c.id === id)
-    if (idx >= 0) return currentSite.value.components.splice(idx, 1)[0]
-    for (const comp of currentSite.value.components) {
-      if (!comp.slots) continue
-      for (const children of Object.values(comp.slots)) {
-        const idx2 = children.findIndex(c => c.id === id)
-        if (idx2 >= 0) return children.splice(idx2, 1)[0]
-        for (const child of children) {
-          if (child.slots) { for (const grandChildren of Object.values(child.slots)) { const idx3 = grandChildren.findIndex(c => c.id === id); if (idx3 >= 0) return grandChildren.splice(idx3, 1)[0] } }
-        }
-      }
-    }
-    return null
+  function rm(id: string): ComponentNode | null {
+    if (!cs.value) return null; let i = cs.value.components.findIndex(c => c.id === id); if (i >= 0) return cs.value.components.splice(i,1)[0]
+    for (const c of cs.value.components) { if (!c.slots) continue; for (const ch of Object.values(c.slots)) { let i2 = ch.findIndex(x => x.id === id); if (i2 >= 0) return ch.splice(i2,1)[0]; for (const gc of ch) { if (gc.slots) { for (const gch of Object.values(gc.slots)) { let i3 = gch.findIndex(x => x.id === id); if (i3 >= 0) return gch.splice(i3,1)[0] } } } } }; return null
   }
   function addComponent(type: ComponentType, parentId?: string, slotName?: string, index?: number) {
-    if (!currentSite.value) return
-    const meta = getComponentMeta(type); if (!meta) return
-    const node: ComponentNode = { id: generateId(), type, props: { ...meta.defaultProps }, styles: { ...meta.defaultStyles } }
-    if (meta.ptNodes) node.pt = {}
-    if (meta.slots) { node.slots = {}; for (const slot of meta.slots) node.slots[slot.name] = [] }
-    const pId = parentId ?? 'root'; const sName = slotName ?? 'default'; const idx = index ?? (pId === 'root' ? currentSite.value.components.length : 0)
-    if (pId === 'root') { currentSite.value.components.splice(idx, 0, node); return }
-    const parent = findNode(pId, currentSite.value.components)
-    if (parent && parent.slots && parent.slots[sName]) { parent.slots[sName].splice(idx, 0, node); return }
-    currentSite.value.components.push(node)
+    if (!cs.value) return; const meta = getComponentMeta(type); if (!meta) return
+    const node: ComponentNode = { id: genId(), type, props: { ...meta.defaultProps }, styles: { ...meta.defaultStyles } }
+    if (meta.ptNodes) node.pt = {}; if (meta.slots) { node.slots = {}; for (const s of meta.slots) node.slots[s.name] = [] }
+    const p = parentId ?? 'root'; const idx = index ?? (p === 'root' ? cs.value.components.length : 0)
+    if (p === 'root') { cs.value.components.splice(idx, 0, node); return }
+    const parent = fn(p, cs.value.components)
+    if (parent && parent.slots && parent.slots[slotName ?? 'default']) { parent.slots[slotName ?? 'default'].splice(idx, 0, node); return }
+    cs.value.components.push(node)
   }
-  function moveComponent(sourceId: string, targetParentId: string, targetSlotName: string, targetIndex: number) {
-    const source = removeFromTree(sourceId); if (!source) return
-    if (targetParentId === 'root') { currentSite.value?.components.splice(targetIndex, 0, source) }
-    else {
-      const target = findNode(targetParentId, currentSite.value?.components ?? [])
-      if (target && target.slots && target.slots[targetSlotName]) { target.slots[targetSlotName].splice(targetIndex, 0, source) }
-      else { currentSite.value?.components.push(source) }
-    }
-    selectedComponentId.value = source.id
+  function moveComponent(si: string, tp: string, ts: string, ti: number) {
+    const src = rm(si); if (!src) return
+    if (tp === 'root') { cs.value?.components.splice(ti, 0, src) }
+    else { const t = fn(tp, cs.value?.components ?? []); if (t && t.slots && t.slots[ts]) t.slots[ts].splice(ti, 0, src); else cs.value?.components.push(src) }
+    scid.value = src.id
   }
-  function removeComponent(id: string) {
-    if (!currentSite.value) return
-    removeFromTree(id)
-    if (selectedComponentId.value === id) selectedComponentId.value = null
-  }
-  function selectComponent(id: string | null) { selectedComponentId.value = id }
-  async function loadCurrentSite(id: string) { currentSite.value = await dbLoadSite(id); selectedComponentId.value = null }
-  async function persistCurrentSite() { if (currentSite.value) await saveSite(currentSite.value) }
-  return { currentSite, selectedComponentId, selectedComponent, addComponent, moveComponent, removeComponent, selectComponent, loadCurrentSite, persistCurrentSite }
+  function removeComponent(id: string) { if (!cs.value) return; rm(id); if (scid.value === id) scid.value = null }
+  function selectComponent(id: string | null) { scid.value = id }
+  async function loadCurrentSite(id: string) { cs.value = await _ls(id) as any; scid.value = null }
+  async function persistCurrentSite() { if (cs.value) await _ss(structuredClone(toRaw(cs.value))) }
+  return { sites, currentSite: cs, selectedComponentId: scid, selectedComponent, addComponent, moveComponent, removeComponent, selectComponent, loadCurrentSite, persistCurrentSite, loadSites, createSite, deleteSiteById }
 })
