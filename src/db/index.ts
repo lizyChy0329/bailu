@@ -1,30 +1,12 @@
-import Dexie, { type EntityTable } from 'dexie'
-import type { SiteConfig } from '@/shared/types/site'
-import { toRaw } from 'vue'
-
-const db = new Dexie('bailu') as Dexie & {
-  sites: EntityTable<SiteConfig, 'id'>
+import Dexie, { type Table } from 'dexie'
+export interface SiteRecord { id: string; title: string; components: any[]; createdAt: number; updatedAt: number }
+class BailuDB extends Dexie {
+  sites!: Table<SiteRecord, string>
+  constructor() {
+    super('bailu')
+    this.version(1).stores({ sites: 'id, title, createdAt, updatedAt' })
+  }
 }
-
-db.version(1).stores({
-  sites: 'id, title, updatedAt',
-})
-
-export async function listSites(): Promise<SiteConfig[]> {
-  return db.sites.orderBy('updatedAt').reverse().toArray()
-}
-
-export async function getSite(id: string): Promise<SiteConfig | undefined> {
-  return db.sites.get(id)
-}
-
-export async function saveSite(site: SiteConfig): Promise<void> {
-  site.updatedAt = Date.now()
-  await db.sites.put(structuredClone(toRaw(site)))
-}
-
-export async function deleteSite(id: string): Promise<void> {
-  await db.sites.delete(id)
-}
-
-export default db
+const db = new BailuDB()
+export async function saveSite(site: SiteRecord) { await db.sites.put({ ...site }) }
+export async function loadSite(id: string): Promise<SiteRecord | undefined> { return db.sites.get(id) }

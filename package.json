@@ -22,7 +22,7 @@
     "vue-draggable-plus": "^0.6.0",
     "monaco-editor": "^0.52.2",
     "shiki": "^3.0.0",
-    "markstream-vue": "^1.0.0",
+    "markstream-vue": "^1.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.0",

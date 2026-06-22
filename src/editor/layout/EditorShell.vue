@@ -33,7 +33,7 @@
     <div ref="shellBody" class="flex-1 flex overflow-hidden" :class="{ 'select-none': resizing }">
       <aside
         class="overflow-y-auto bg-gray-50 dark:bg-gray-800/50 shrink-0"
-        :style="{ width: leftPanelWidth, minWidth: '10rem', maxWidth: '24rem' }"
+        :style="{ width: leftPanelWidth, minWidth: '550px', maxWidth: '36rem' }"
       >
         <LeftPanel />
       </aside>
@@ -94,12 +94,12 @@ const devices = [
 const siteTitle = ref(siteStore.currentSite?.title ?? '未命名站点')
 const shellBody = ref<HTMLElement | null>(null)
 
-const LEFT_MIN = 160
-const LEFT_MAX = 384
+const LEFT_MIN = 550
+const LEFT_MAX = 576
 const RIGHT_MIN = 224
 const RIGHT_MAX = 480
 
-const leftPanelWidth = ref('250px')
+const leftPanelWidth = ref('580px')
 const rightPanelWidth = ref('300px')
 const resizing = ref<'left' | 'right' | null>(null)
 
