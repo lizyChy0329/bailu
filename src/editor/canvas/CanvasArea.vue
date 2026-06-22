@@ -1,288 +1,197 @@
 <template>
   <div
     ref="canvasRef"
-    class="h-[1100px] min-h-[1100px] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dot-grid relative overflow-hidden"
+    class="min-h-[600px] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 relative"
     @dragover.prevent="onDragOver"
     @drop.prevent="onDrop"
-    @click="deselectComponent"
+    @dragleave="onDragLeave"
   >
-    <div v-if="rootComponents.length === 0" class="flex items-center justify-center h-full text-gray-400 text-sm pointer-events-none select-none">
+    <div v-if="rootComponents.length === 0" class="text-center py-20 text-gray-400 text-sm">
       从左侧拖拽组件到此处
     </div>
 
-    <div
-      v-for="comp in rootComponents"
-      :key="comp.id"
-      :ref="(el: any) => setComponentRef(comp.id, el as HTMLElement)"
-      :data-component-id="comp.id"
-      class="absolute group rounded-lg"
-      :style="getComponentStyle(comp)"
-      @click.stop="siteStore.selectComponent(comp.id)"
-      @mousedown="onComponentMousedown(comp.id, $event)"
+    <VueDraggable
+      v-if="siteStore.currentSite"
+      v-model="rootComponents"
+      :animation="200"
+      handle=".drag-handle"
+      ghost-class="opacity-30"
+      class="space-y-3"
     >
-      <div class="w-full h-full overflow-auto bg-white dark:bg-gray-900 rounded-[4px]">
-        <Renderer :dsl="[comp]" />
+      <div
+        v-for="comp in rootComponents"
+        :key="comp.id"
+        :ref="(el: any) => setComponentRef(comp.id, el as HTMLElement)"
+        :data-component-id="comp.id"
+        class="relative group border-2 rounded-lg transition-colors"
+        :class="siteStore.selectedComponentId === comp.id ? 'border-blue-500' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'"
+        @click.stop="siteStore.selectComponent(comp.id)"
+      >
+        <Tag
+          :value="getComponentLabel(comp.type)"
+          severity="info"
+          class="drag-handle absolute -top-3 left-2 z-10 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+        />
+        <div class="p-2">
+          <Renderer :dsl="[comp]" />
+        </div>
+        <Button
+          icon="pi pi-times"
+          severity="danger"
+          text
+          rounded
+          size="small"
+          class="absolute -top-3 -right-3 z-10 opacity-0 group-hover:opacity-100"
+          @click.stop="siteStore.removeComponent(comp.id)"
+        />
       </div>
+    </VueDraggable>
+
+    <!-- 拖入插入指示线 -->
+    <div
+      v-if="dropZone"
+      class="absolute left-0 right-0 z-20 pointer-events-none flex items-center"
+      :style="{ top: dropZone.y + 'px' }"
+    >
+      <div class="h-0.5 bg-blue-500 flex-1" />
+      <div class="w-2 h-2 bg-blue-500 rounded-full -ml-1" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-/* ===================================================================
- * CanvasArea — 自由定位画布
- *
- * 职责：在固定高度(1100px)的 Canvas 上，以绝对定位渲染根级组件，
- *       通过 moveable 提供拖拽和 8 方向缩放，均吸附到 15px 网格。
- *       插槽内的子组件不受影响（保持流式堆叠 + vue-draggable-plus）。
- * =================================================================== */
-
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import { useSiteStore } from '@/stores/site.store'
 import { getComponentMeta } from '@/editor/registry'
-import type { ComponentType } from '@/shared/types/component'
-import Moveable from 'moveable'
+import type { ComponentNode, ComponentType } from '@/shared/types/component'
+import Button from 'primevue/button'
+import Tag from 'primevue/tag'
 import Renderer from '@/renderer/core/Renderer.vue'
 
-// ─────────────────────────────────────────────────────
-// 步骤 1：状态定义
-// ─────────────────────────────────────────────────────
+// ── 状态 ──
 
 const siteStore = useSiteStore()
-const canvasRef = ref<HTMLElement | null>(null)           // Canvas 容器 DOM 引用
-const componentRefs = new Map<string, HTMLElement>()      // 组件 id → DOM 元素映射
-let moveable: Moveable | null = null                      // 当前激活的 moveable 实例
+const canvasRef = ref<HTMLElement | null>(null)
+const componentEls = new Map<string, HTMLElement>()
 
-/** Canvas 内所有根级组件（带响应式） */
+/**
+ * 当前落点缓存，由 onDragOver 中的 locate() 算法持续更新。
+ * y 是插入线相对于 canvas 容器的 Y 偏移（px），指示线在此位置渲染。
+ */
+const dropZone = ref<{
+  parentId: string
+  slotName: string
+  index: number
+  y: number
+} | null>(null)
+
 const rootComponents = computed(() => {
   if (siteStore.currentSite) return siteStore.currentSite.components
   return []
 })
 
-// ─────────────────────────────────────────────────────
-// 步骤 2：组件渲染辅助
-// ─────────────────────────────────────────────────────
+// ── 组件渲染辅助 ──
 
-/** 根据组件数据计算绝对定位的 style 对象 */
-function getComponentStyle(comp: { type: ComponentType; x?: number; y?: number; width?: number; height?: number }) {
-  const meta = getComponentMeta(comp.type)
-  return {
-    position: 'absolute' as const,
-    left: (comp.x ?? 0) + 'px',
-    top: (comp.y ?? 0) + 'px',
-    width: (comp.width ?? meta?.defaultWidth ?? 300) + 'px',
-    height: (comp.height ?? meta?.defaultHeight ?? 200) + 'px',
-  }
-}
-
-/** 模板 ref 回调：维护 componentRefs 映射 */
 function setComponentRef(id: string, el: HTMLElement | null) {
-  if (el) {
-    componentRefs.set(id, el)
-  } else {
-    componentRefs.delete(id)
-  }
+  if (el) componentEls.set(id, el)
+  else componentEls.delete(id)
 }
 
-/** 将 "200px" 形式的字符串转为数字 */
-function px(v: string): number {
-  const n = parseInt(v.replace('px', ''))
-  return isNaN(n) ? 0 : n
+function getComponentLabel(type: ComponentType): string {
+  return getComponentMeta(type)?.label ?? type
 }
 
-// ─────────────────────────────────────────────────────
-// 步骤 3：选中/取消选中
-// ─────────────────────────────────────────────────────
+// ── 拖入定位算法 ──
 
-/** 点击 Canvas 空白处 → 取消选中 + 销毁 moveable */
-function deselectComponent() {
-  siteStore.selectComponent(null)
-  destroyMoveable()
-}
-
-// ─────────────────────────────────────────────────────
-// 步骤 4：从左侧面板拖入新组件
-// ─────────────────────────────────────────────────────
-
-function onDragOver(event: DragEvent) {
-  if (event.dataTransfer?.types.includes('component-type')) {
-    event.dataTransfer.dropEffect = 'copy'
-  }
-}
-
-/** 拖放新组件到 Canvas：计算落点坐标（吸附到 15px 网格）+ 使用 meta 中定义的默认尺寸 */
-function onDrop(event: DragEvent) {
-  const type = event.dataTransfer?.getData('component-type') as ComponentType | undefined
-  if (!type || !canvasRef.value) return
-
-  const rect = canvasRef.value.getBoundingClientRect()
-  const meta = getComponentMeta(type)
-  const w = meta?.defaultWidth ?? 300
-  const h = meta?.defaultHeight ?? 200
-
-  const x = Math.max(0, Math.round((event.clientX - rect.left) / 15) * 15)
-  const y = Math.max(0, Math.round((event.clientY - rect.top) / 15) * 15)
-
-  siteStore.addComponent(type, { x, y, width: w, height: h })
-}
-
-// ─────────────────────────────────────────────────────
-// 步骤 5：Moveable 实例管理
-// ─────────────────────────────────────────────────────
-
-/** 销毁当前 moveable 实例 */
-function destroyMoveable() {
-  if (moveable) {
-    moveable.destroy()
-    moveable = null
-  }
+interface DropZone {
+  parentId: string
+  slotName: string
+  index: number
+  y: number   // 相对 canvas 容器的 Y 像素偏移
 }
 
 /**
- * 将 moveable 操作结束后的最终视觉位置写回 Pinia store。
- * 使用 getBoundingClientRect 而非 style.left，因为 resize 期间位移由
- * transform 驱动，style.left 并不准确。
- */
-function syncFromDom(target: HTMLElement) {
-  const id = target.dataset.componentId
-  if (!id) return
-  const comp = rootComponents.value.find((c) => c.id === id)
-  if (!comp || !canvasRef.value) return
-
-  const canvasRect = canvasRef.value.getBoundingClientRect()
-  const targetRect = target.getBoundingClientRect()
-
-  comp.x = Math.round((targetRect.left - canvasRect.left) / 15) * 15
-  comp.y = Math.round((targetRect.top - canvasRect.top) / 15) * 15
-  comp.width = px(target.style.width)
-  comp.height = px(target.style.height)
-}
-
-// ─────────────────────────────────────────────────────
-// 步骤 6：鼠标按下 → 创建 moveable + 立即开始拖拽
-// ─────────────────────────────────────────────────────
-
-/**
- * @mousedown 处理函数（同步触发，早于 @click）
+ * locate() — 参考 lowcode-engine Sensor.locate() 简化实现。
  *
- * 1. 跳过交互性子元素（INPUT/BUTTON 等）
- * 2. 销毁旧 moveable + 选中本组件
- * 3. 构建对齐辅助线（其他组件作为 elementGuidelines）
- * 4. 创建 moveable（可拖拽 + 8 方向缩放 + 15px 网格吸附 + 边界约束）
- * 5. 注册 drag / dragEnd / resize / resizeEnd 事件
- * 6. 调用 dragStart() 让同一 mousedown 即触发拖拽
+ * 1. 遍历当前层级所有子组件的 DOM 矩形
+ * 2. 计算鼠标到每个组件中心线的垂直距离
+ * 3. 找到最近邻组件，确定插入 before/after
+ * 4. 返回落点位置
  */
-function onComponentMousedown(id: string, event: MouseEvent) {
-  // ── 子元素跳过 ──
-  const target = event.target as HTMLElement
-  if (target !== event.currentTarget) {
-    const tag = target.tagName
-    if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' ||
-        tag === 'SELECT' || tag === 'A' || tag === 'LABEL' ||
-        tag === 'IMG' || target.isContentEditable) {
-      return
+function locate(
+  mouseY: number,              // 相对于 canvas 容器的鼠标 Y
+  children: ComponentNode[],
+): DropZone | null {
+  if (children.length === 0) {
+    return { parentId: 'root', slotName: 'default', index: 0, y: 0 }
+  }
+
+  let nearIdx = 0
+  let nearDist = Infinity
+  let nearRect: DOMRect | null = null
+
+  for (let i = 0; i < children.length; i++) {
+    const el = componentEls.get(children[i].id)
+    if (!el) continue
+
+    const r = el.getBoundingClientRect()
+    const canvasRect = canvasRef.value!.getBoundingClientRect()
+    const relTop = r.top - canvasRect.top
+    const relBot = r.bottom - canvasRect.top
+    const centerY = (relTop + relBot) / 2
+    const dist = Math.abs(mouseY - centerY)
+
+    if (dist < nearDist) {
+      nearDist = dist
+      nearIdx = i
+      nearRect = r
     }
   }
 
-  // ── 清理旧状态 + 选中当前组件 ──
-  destroyMoveable()
-  siteStore.selectComponent(id)
+  if (!nearRect || !canvasRef.value) return null
 
-  const el = componentRefs.get(id)
-  if (!el || !canvasRef.value) return
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  const relTop = nearRect.top - canvasRect.top
 
-  // ── 构建对齐辅助线 ──
-  const guidelines: HTMLElement[] = []
-  for (const [cid, el2] of componentRefs) {
-    if (cid !== id) guidelines.push(el2)
-  }
+  // 鼠标在组件上半部分 → 插入到之前；下半部分 → 之后
+  const after = mouseY > relTop + nearRect.height / 2
+  const index = after ? nearIdx + 1 : nearIdx
+  const y = after
+    ? nearRect.bottom - canvasRect.top    // 组件底部
+    : nearRect.top - canvasRect.top        // 组件顶部
 
-  // ── 创建 moveable ──
-  moveable = new Moveable(canvasRef.value, {
-    target: el,
-    container: canvasRef.value,
-    draggable: true,
-    resizable: true,
-    snappable: true,
-    snapGridWidth: 15,
-    snapGridHeight: 15,
-    elementGuidelines: guidelines,
-    bounds: { element: canvasRef.value },
-    throttleDrag: 15,
-    throttleResize: 15,
-    origin: false,
-    edge: false,
-    renderDirections: ['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'],
-  })
+  return { parentId: 'root', slotName: 'default', index, y }
+}
 
-  // ── 注册拖拽事件 ──
-  moveable
-    .on('drag', (e: any) => {
-      // 拖拽中用 left/top 直接定位，清除 transform（防止 moveable 双重变换）
-      const dx = Math.round(e.left / 15) * 15
-      const dy = Math.round(e.top / 15) * 15
-      e.target.style.left = dx + 'px'
-      e.target.style.top = dy + 'px'
-      e.target.style.transform = 'none'
-    })
-    .on('dragEnd', (e: any) => {
-      syncFromDom(e.target)
-    })
+// ── 拖拽事件 ──
 
-  // ── 注册缩放事件 ──
-  moveable
-    .on('resize', (e: any) => {
-      // 宽高吸附到 15px 网格
-      const snapW = Math.round(e.width / 15) * 15
-      const snapH = Math.round(e.height / 15) * 15
-      e.target.style.width = Math.max(30, snapW) + 'px'
-      e.target.style.height = Math.max(30, snapH) + 'px'
+function onDragOver(event: DragEvent) {
+  if (!event.dataTransfer?.types.includes('component-type') || !canvasRef.value) return
+  event.dataTransfer.dropEffect = 'copy'
 
-      /**
-       * 关键：使用 moveable 自身计算的位移来保持对边固定。
-       *
-       * 拖拽左滑块时 moveable 会算出 translate(-W, 0)，
-       * 应用后宽度增加 W 的同时左移 W，右边缘保持不动。
-       * 拖拽上滑块同理，translate(0, -H) 保持下边缘。
-       * 对角线拖拽则 translate(-W, -H) 保持对角。
-       *
-       * 之前写的 transform: 'none' 清掉了这个位移，导致右边缘偏移。
-       */
-      if (e.drag?.beforeTranslate) {
-        const dx = Math.round(e.drag.beforeTranslate[0] / 15) * 15
-        const dy = Math.round(e.drag.beforeTranslate[1] / 15) * 15
-        e.target.style.transform = `translate(${dx}px, ${dy}px)`
-      }
-    })
-    .on('resizeEnd', (e: any) => {
-      // 读取最终视觉位置（getBoundingClientRect 包含 transform 效果）写入 store
-      syncFromDom(e.target)
-      // 清掉临时 transform，Vue 下次渲染会用新的 left/top 接管定位
-      e.target.style.transform = 'none'
-    })
+  const canvasRect = canvasRef.value.getBoundingClientRect()
+  const mouseY = event.clientY - canvasRect.top
 
-  // ── 立即启动拖拽（同一 mousedown 即响应，无需第二次点击）──
-  if (typeof (moveable as any).dragStart === 'function') {
-    ;(moveable as any).dragStart(event)
+  dropZone.value = locate(mouseY, rootComponents.value)
+}
+
+function onDragLeave(event: DragEvent) {
+  // 只当真正离开 canvas 时才清除（避免经过子元素误清）
+  if (canvasRef.value && !canvasRef.value.contains(event.relatedTarget as Node)) {
+    dropZone.value = null
   }
 }
 
-// ─────────────────────────────────────────────────────
-// 步骤 7：组件卸载时清理
-// ─────────────────────────────────────────────────────
+function onDrop(event: DragEvent) {
+  const type = event.dataTransfer?.getData('component-type') as ComponentType | undefined
+  if (!type || !dropZone.value) {
+    dropZone.value = null
+    return
+  }
 
-onBeforeUnmount(() => {
-  destroyMoveable()
-})
+  const { parentId, slotName, index } = dropZone.value
+  siteStore.addComponent(type, index)
+  dropZone.value = null
+}
 </script>
-
-<style scoped>
-.dot-grid {
-  background-color: #fff;
-  background-image: radial-gradient(circle, #e5e5e5 1px, transparent 1px);
-  background-size: 10px 10px;
-}
-:root.dark .dot-grid {
-  background-color: #111827;
-  background-image: radial-gradient(circle, #374151 1px, transparent 1px);
-}
-</style>

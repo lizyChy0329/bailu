@@ -14,8 +14,6 @@ export const buttonMeta: ComponentMeta = {
   defaultStyles: {
     class: 'w-full',
   },
-  defaultWidth: 200,
-  defaultHeight: 44,
   propsPanel: [
     { key: 'label', label: '文本', control: 'text-input' },
     { key: 'icon', label: '图标类', control: 'text-input' },

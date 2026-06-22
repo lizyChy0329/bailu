@@ -50,3 +50,14 @@ _Avoid_: 网格线交叉的坐标系, SVG 网格覆盖层
 **Free-Form Canvas（自由定位画布）**:
 Canvas 中的根级组件采用绝对定位（left/top/width/height），通过 moveable 驱动拖拽和缩放。拖拽和缩放均吸附到 20px 网格，8 控制点缩放。插槽内的嵌套子组件保持流式垂直堆叠（vue-draggable-plus）。
 _Avoid_: 所有组件统一自由定位, 完全像素自由无吸附
+
+**Component Tree（组件树）**:
+编辑器左侧面板右侧区域展示的 PrimeVue Tree 组件，以树形结构呈现当前页面的组件层级，包括 slot 节点。树上点击节点可选中组件，拖拽节点可调整组件层级和 slot 归属。Slot 节点以 `[slot: name]` 形式展示。
+
+**Drop Indicator（插入指示线）**:
+从组件面板拖拽新组件到 Canvas 时，Canvas 上显示的蓝色水平定位线。通过 DOM 碰撞算法（参考 lowcode-engine Sensor.locate）计算鼠标最近的组件间隙，指示线出现在该位置。插入到容器组件时，容器边框高亮提示。
+
+## 废弃
+
+**Dot Grid Canvas（点阵画布）** — 已废弃，Canvas 改为流式布局
+**Free-Form Canvas（自由定位画布）** — 已废弃，被 003-tree-canvas-architecture ADR 取代

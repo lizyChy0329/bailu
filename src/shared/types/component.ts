@@ -53,13 +53,6 @@ export interface ComponentNode {
   events?: Record<string, PropEvent>
   slots?: Record<string, ComponentNode[]>
   /** 自由定位：根级组件的 X 坐标（px） */
-  x?: number
-  /** 自由定位：根级组件的 Y 坐标（px） */
-  y?: number
-  /** 自由定位：根级组件的宽度（px） */
-  width?: number
-  /** 自由定位：根级组件的高度（px） */
-  height?: number
 }
 
 export interface PropDef {
@@ -91,8 +84,4 @@ export interface ComponentMeta {
   slots?: SlotMeta[]
   ptNodes?: PTNodeMeta[]
   defaultChildren?: Record<string, ComponentNode[]>
-  /** 根级组件拖入 Canvas 时的默认宽度 */
-  defaultWidth?: number
-  /** 根级组件拖入 Canvas 时的默认高度 */
-  defaultHeight?: number
 }

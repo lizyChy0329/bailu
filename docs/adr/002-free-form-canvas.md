@@ -1,5 +1,6 @@
 # 自由定位画布
 
+废弃: 被 docs/adr/003-tree-canvas-architecture.md 取代
 日期: 2026-06-18
 状态: 已采纳
 

@@ -16,8 +16,6 @@ export const imageMeta: ComponentMeta = {
   defaultStyles: {
     class: '',
   },
-  defaultWidth: 300,
-  defaultHeight: 200,
   propsPanel: [
     { key: 'src', label: '图片地址', control: 'text-input' },
     { key: 'preview', label: '开启预览', control: 'switch' },
