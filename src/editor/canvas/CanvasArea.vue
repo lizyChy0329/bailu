@@ -151,7 +151,7 @@ function onComponentMousedown(id: string, event: MouseEvent) {
     throttleDrag: 15,
     throttleResize: 15,
     origin: false,
-    edge: false,
+    edge: true,
     renderDirections: ['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'],
   })
 
