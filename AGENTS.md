@@ -60,13 +60,25 @@ Single-context：一份 CONTEXT.md 在 repo 根目录。详见 `docs/agents/doma
 ## ADRs
 - See `docs/adr/` directory
 
-## Image Test URLs
-
-## Image Test Placeholder
-
-使用内联 SVG data URL 作为测试图片，无需网络请求：
-
-```ts
 // 300x200, 深色背景浅色文字
 'src': 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22300%22%20height%3D%22200%22%3E%3Crect%20width%3D%22300%22%20height%3D%22200%22%20fill%3D%22%232d3748%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23ffffff%22%20font-family%3D%22sans-serif%22%20font-size%3D%2222%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22central%22%3E300%20x%20200%3C%2Ftext%3E%3C%2Fsvg%3E'
 ```
+
+## Image Placeholder
+
+默认使用 `https://z.wiki/placeholder/` 作为测试占位图（国内服务，极速响应）。
+
+```html
+<!-- 基础占位 -->
+<img src="https://z.wiki/placeholder/300x200" />
+
+<!-- 带边框 + 叉号 + 自定义文案 -->
+<img src="https://z.wiki/placeholder/300x200+border+cross?text=300%C3%97200" />
+
+<!-- 自定义颜色 -->
+<img src="https://z.wiki/placeholder/300x200?text=Demo&color=white&bgColor=%232d3748" />
+```
+
+参数：`+border` 边框 / `+cross` 叉号 / `?text=` 文案 / `&color=` 文字色 / `&bgColor=` 背景色
+
+备用服务：`https://placeholder.com/` / `https://dummyimage.com/` / `https://fakeimg.pl/` / `https://picsum.photos/`

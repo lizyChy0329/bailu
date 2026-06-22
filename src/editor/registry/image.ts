@@ -5,7 +5,7 @@ export const imageMeta: ComponentMeta = {
   label: '图片',
   icon: 'pi pi-image',
   defaultProps: {
-    src: 'https://pics.cdnmama.com/attachment/mamacn/images/202212/20221212/162455_88996_w750_h300.png',
+    src: 'https://z.wiki/placeholder/300x200+border+cross?text=300%C3%97200',
     preview: false,
     indicatorIcon: '',
     previewIcon: '',
