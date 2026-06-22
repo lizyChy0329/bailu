@@ -1,21 +1,24 @@
 <template>
   <div ref="canvasRef"
-    class="min-h-[600px] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 relative"
+    class="min-h-[600px] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 relative select-none"
     :class="dropZone ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-900'"
     @dragover.prevent="onDragOver" @drop.prevent="onDrop" @dragleave="onDragLeave">
     <div v-if="rootComponents.length === 0" class="text-center py-20 text-gray-400 text-sm pointer-events-none">
-      从左侧拖拽组件到此处</div>
+      从左侧拖拽组件到此处
+    </div>
     <VueDraggable v-if="siteStore.currentSite" v-model="rootComponents"
-      :animation="200" handle=".drag-handle" ghost-class="opacity-30" class="space-y-3">
+      :animation="200" ghost-class="opacity-30" class="space-y-3">
       <div v-for="comp in rootComponents" :key="comp.id"
-        :ref="(el: any) => setComponentRef(comp.id, el as HTMLElement)" :data-component-id="comp.id"
-        class="relative group border-2 rounded-lg transition-colors"
+        :ref="(el: any) => setComponentRef(comp.id, el as HTMLElement)"
+        :data-component-id="comp.id"
+        class="relative group border-2 rounded-lg cursor-grab active:cursor-grabbing"
         :class="siteStore.selectedComponentId === comp.id ? 'border-blue-500' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'"
-        @click.stop="siteStore.selectComponent(comp.id)"
         @contextmenu.prevent.stop="onContextMenu(comp.id, $event)">
         <Tag :value="getComponentLabel(comp.type)" severity="info"
-          class="drag-handle absolute -top-3 left-2 z-10 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div class="p-2"><Renderer :dsl="[comp]" /></div>
+          class="absolute -top-3 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div class="p-2 pointer-events-none">
+          <Renderer :dsl="[comp]" />
+        </div>
       </div>
     </VueDraggable>
     <div v-if="dropZone"
@@ -52,9 +55,7 @@ function getComponentLabel(type: ComponentType): string { return getComponentMet
 const contextMenuRef = ref<any>(null)
 const contextTarget = ref<string | null>(null)
 const contextMenuItems = ref([
-  { label: '删除', icon: 'pi pi-trash', command: () => {
-    if (contextTarget.value) { siteStore.removeComponent(contextTarget.value); contextTarget.value = null }
-  }},
+  { label: '删除', icon: 'pi pi-trash', command: () => { if (contextTarget.value) { siteStore.removeComponent(contextTarget.value); contextTarget.value = null } }},
   { separator: true },
   { label: '复制', icon: 'pi pi-copy' },
 ])
@@ -62,8 +63,7 @@ function onContextMenu(id: string, event: MouseEvent) {
   siteStore.selectComponent(id); contextTarget.value = id; contextMenuRef.value?.show(event)
 }
 /* ── 拖入定位算法 ── */
-interface DropLocation { parentId: string; slotName: string; index: number; y: number }
-function locate(mouseY: number, children: ComponentNode[], parentId?: string, slotName?: string): DropLocation | null {
+function locate(mouseY: number, children: ComponentNode[], parentId?: string, slotName?: string): typeof dropZone.value | null {
   const pId = parentId ?? 'root'; const sName = slotName ?? 'default'
   if (!canvasRef.value) return null
   if (children.length === 0) return { parentId: pId, slotName: sName, index: 0, y: 0 }
@@ -82,7 +82,6 @@ function locate(mouseY: number, children: ComponentNode[], parentId?: string, sl
   const after = relMid > relH / 2
   const nearChild = children[nearIdx]
   const meta = getComponentMeta(nearChild.type)
-  // 若鼠标在容器组件的中间 60% 范围 → 进入 default slot
   if (meta?.slots && meta.slots.length > 0 && relMid > relH * 0.2 && relMid < relH * 0.8) {
     return locate(mouseY, nearChild.slots?.default ?? [], nearChild.id, 'default')
   }
