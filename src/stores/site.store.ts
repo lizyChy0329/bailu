@@ -21,7 +21,7 @@ export const useSiteStore = defineStore('site', () => {
   function addComponent(type: ComponentType, parentId?: string, slotName?: string, index?: number) {
     if (!cs.value) return; const meta = getComponentMeta(type); if (!meta) return
     const node: ComponentNode = { id: genId(), type, props: { ...meta.defaultProps }, styles: { ...meta.defaultStyles } }
-    if (meta.ptNodes) node.pt = {}; if (meta.slots) { node.slots = {}; for (const s of meta.slots) node.slots[s.name] = [] }
+if (meta.ptNodes) node.pt = {}; if (meta.slots) { node.slots = {}; node.slotVisibility = {}; for (const s of meta.slots) { node.slots[s.name] = []; node.slotVisibility[s.name] = true } }
     const p = parentId ?? 'root'; const idx = index ?? (p === 'root' ? cs.value.components.length : 0)
     if (p === 'root') { cs.value.components.splice(idx, 0, node); return }
     const parent = fn(p, cs.value.components)
