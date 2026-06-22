@@ -17,7 +17,8 @@
       :data-component-id="comp.id"
       class="absolute group rounded-lg"
       :style="getComponentStyle(comp)"
-      @click.stop="onComponentClick(comp.id)"
+      @click.stop="siteStore.selectComponent(comp.id)"
+      @mousedown="onComponentMousedown(comp.id, $event)"
     >
       <div class="w-full h-full overflow-auto bg-white dark:bg-gray-900 rounded-[4px]">
         <Renderer :dsl="[comp]" />
@@ -115,7 +116,17 @@ function px(v: string): number {
   return isNaN(n) ? 0 : n
 }
 
-function onComponentClick(id: string) {
+function onComponentMousedown(id: string, event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (target !== event.currentTarget) {
+    const tag = target.tagName
+    if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA' ||
+        tag === 'SELECT' || tag === 'A' || tag === 'LABEL' ||
+        tag === 'IMG' || target.isContentEditable) {
+      return
+    }
+  }
+
   destroyMoveable()
   siteStore.selectComponent(id)
 
@@ -144,12 +155,24 @@ function onComponentClick(id: string) {
     renderDirections: ['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'],
   })
 
+  // ── resize origin tracker ──
+  let resizeOrig = { left: 0, top: 0, width: 0, height: 0 }
+
+  moveable
+    .on('resizeStart', (e: any) => {
+      const el_ = e.target as HTMLElement
+      resizeOrig = {
+        left: px(el_.style.left),
+        top: px(el_.style.top),
+        width: px(el_.style.width),
+        height: px(el_.style.height),
+      }
+    })
+
   moveable
     .on('drag', (e: any) => {
-      const dx = Math.round(e.left / 15) * 15
-      const dy = Math.round(e.top / 15) * 15
-      e.target.style.left = dx + 'px'
-      e.target.style.top = dy + 'px'
+      e.target.style.left = Math.round(e.left / 15) * 15 + 'px'
+      e.target.style.top = Math.round(e.top / 15) * 15 + 'px'
       e.target.style.transform = 'none'
     })
     .on('dragEnd', (e: any) => {
@@ -158,21 +181,33 @@ function onComponentClick(id: string) {
 
   moveable
     .on('resize', (e: any) => {
-      const rw = Math.round(e.width / 15) * 15
-      const rh = Math.round(e.height / 15) * 15
-      e.target.style.width = rw + 'px'
-      e.target.style.height = rh + 'px'
-      const rx = Math.round(e.left / 15) * 15
-      const ry = Math.round(e.top / 15) * 15
-      if (rx !== (e as any).drag?.left || ry !== (e as any).drag?.top) {
-        e.target.style.left = rx + 'px'
-        e.target.style.top = ry + 'px'
-      }
+      const dir = e.direction as [number, number]   // [-1,0]=west, [1,0]=east, [0,-1]=north, [0,1]=south
+      const left = Math.round(e.left / 15) * 15
+      const top = Math.round(e.top / 15) * 15
+
+      // Preserve opposite edge when resizing from left/top
+      const width = dir[0] < 0
+        ? resizeOrig.width + (resizeOrig.left - left)
+        : Math.round(e.width / 15) * 15
+
+      const height = dir[1] < 0
+        ? resizeOrig.height + (resizeOrig.top - top)
+        : Math.round(e.height / 15) * 15
+
+      e.target.style.left = left + 'px'
+      e.target.style.top = top + 'px'
+      e.target.style.width = Math.max(30, width) + 'px'
+      e.target.style.height = Math.max(30, height) + 'px'
       e.target.style.transform = 'none'
     })
     .on('resizeEnd', (e: any) => {
       syncFromDom(e.target)
     })
+
+  // Immediately start drag so a single mousedown both activates moveable and begins dragging
+  if (typeof (moveable as any).dragStart === 'function') {
+    ;(moveable as any).dragStart(event)
+  }
 }
 
 onBeforeUnmount(() => {
@@ -184,7 +219,7 @@ onBeforeUnmount(() => {
 .dot-grid {
   background-color: #fff;
   background-image: radial-gradient(circle, #e5e5e5 1px, transparent 1px);
-  background-size: 10px 10px;
+  background-size: 15px 15px;
 }
 :root.dark .dot-grid {
   background-color: #111827;
