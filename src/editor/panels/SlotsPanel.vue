@@ -1,89 +1,47 @@
 <template>
-  <div class="space-y-3">
+  <div class="space-y-1">
     <div
-      v-for="slot in slots"
+      v-for="slot in slotList"
       :key="slot.name"
-      class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-2"
+      class="flex items-center justify-between px-2 py-2.5 rounded-md"
+      :class="hasChildren(slot.name) ? 'bg-surface-50 dark:bg-surface-800/50' : 'opacity-50'"
     >
-      <div class="text-xs font-medium text-gray-500 mb-1">{{ slot.label }} ({{ slot.name }})</div>
-
-      <div v-if="slot.allowsChildren" class="space-y-1">
-        <div
-          v-for="child in getSlotChildren(slot.name)"
-          :key="child.id"
-          class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between"
-        >
-          <span>{{ getComponentLabel(child.type) }}</span>
-          <Button
-            icon="pi pi-times"
-            severity="danger"
-            text
-            rounded
-            size="small"
-            @click="removeFromSlot(slot.name, child.id)"
-          />
-        </div>
-        <div
-          class="text-xs text-gray-400 text-center py-2 border border-dashed border-gray-200 dark:border-gray-700 rounded"
-          @dragover.prevent
-          @drop.prevent="(e) => dropToSlot(e, slot.name)"
-        >
-          拖拽组件到此处
-        </div>
+      <div class="flex items-center gap-2">
+        <i class="pi pi-folder-open text-xs text-gray-400" />
+        <span class="text-sm">{{ slot.label }}</span>
       </div>
-
-      <div v-else class="text-xs text-gray-400 italic">文本内容插槽（不可拖入子组件）</div>
+      <ToggleSwitch
+        :model-value="slotVisibility[slot.name] ?? true"
+        @update:model-value="setVis(slot.name, $event)"
+        size="small"
+      />
     </div>
-    <div v-if="slots.length === 0" class="text-xs text-gray-400 text-center py-4">此组件无可用插槽</div>
+    <div v-if="slotList.length === 0" class="text-xs text-gray-400 text-center py-8">此组件无可用插槽</div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ComponentType } from '@/shared/types/component'
 import { useSiteStore } from '@/stores/site.store'
 import { getComponentMeta } from '@/editor/registry'
-import { generateId } from '@/shared/utils/id'
-import Button from 'primevue/button'
+import ToggleSwitch from 'primevue/toggleswitch'
 
 const siteStore = useSiteStore()
 
-const slots = computed(() => {
-  if (!siteStore.selectedComponent) return []
-  return getComponentMeta(siteStore.selectedComponent.type)?.slots ?? []
-})
+const comp = computed(() => siteStore.selectedComponent)
+const meta = computed(() => comp.value ? getComponentMeta(comp.value.type) ?? null : null)
 
-function getSlotChildren(slotName: string) {
-  if (!siteStore.selectedComponent?.slots) return []
-  return siteStore.selectedComponent.slots[slotName] ?? []
+const slotList = computed(() => meta.value?.slots ?? [])
+
+const slotVisibility = computed(() => comp.value?.slotVisibility ?? {})
+
+function hasChildren(slotName: string): boolean {
+  return (comp.value?.slots?.[slotName]?.length ?? 0) > 0
 }
 
-function getComponentLabel(type: ComponentType): string {
-  return getComponentMeta(type)?.label ?? type
-}
-
-function dropToSlot(event: DragEvent, slotName: string) {
-  const type = event.dataTransfer?.getData('component-type') as ComponentType | undefined
-  if (!type || !siteStore.selectedComponent) return
-  if (!siteStore.selectedComponent.slots) siteStore.selectedComponent.slots = {}
-  if (!siteStore.selectedComponent.slots[slotName]) siteStore.selectedComponent.slots[slotName] = []
-
-  const meta = getComponentMeta(type)
-  if (!meta) return
-
-  const child = {
-    id: generateId(),
-    type,
-    props: { ...meta.defaultProps },
-    styles: { ...meta.defaultStyles },
-  }
-  siteStore.selectedComponent.slots[slotName].push(child)
-}
-
-function removeFromSlot(slotName: string, childId: string) {
-  if (!siteStore.selectedComponent?.slots) return
-  siteStore.selectedComponent.slots[slotName] = siteStore.selectedComponent.slots[slotName].filter(
-    (c) => c.id !== childId,
-  )
+function setVis(name: string, v: boolean) {
+  if (!comp.value) return
+  if (!comp.value.slotVisibility) comp.value.slotVisibility = {}
+  comp.value.slotVisibility[name] = v
 }
 </script>
