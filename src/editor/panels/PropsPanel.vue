@@ -56,6 +56,26 @@
         </AccordionContent>
       </AccordionPanel>
 
+      <!-- Presets section -->
+      <AccordionPanel value="__presets">
+        <AccordionHeader class="text-sm">预设组合</AccordionHeader>
+        <AccordionContent>
+          <div class="space-y-2">
+            <div v-for="preset in siteStore.currentSite?.groupClassPresets" :key="preset.id"
+                 class="flex items-center justify-between p-2 border rounded">
+              <div class="flex items-center gap-2">
+                <Checkbox v-model="stylesDraft.groupRefs" :value="preset.id" />
+                <div>
+                  <div class="text-sm font-medium">{{ preset.name }}</div>
+                  <div class="text-xs text-gray-500">{{ preset.classes.join(' ') }}</div>
+                </div>
+              </div>
+            </div>
+            <Button label="管理预设" icon="pi pi-cog" variant="outlined" size="small" @click="presetDialogVisible = true" />
+          </div>
+        </AccordionContent>
+      </AccordionPanel>
+
       <!-- PT section -->
       <AccordionPanel value="__pt">
         <AccordionHeader class="text-sm">
@@ -142,6 +162,60 @@
       </template>
     </Drawer>
 
+    <!-- Preset Management Drawer -->
+    <Drawer v-model:visible="presetDialogVisible" position="right" :header="'预设组合管理'" class="!w-[500px]">
+      <div class="space-y-4">
+        <p class="text-sm text-gray-600">
+          将常用的样式组合保存为预设，一键应用到组件上。修改预设后，所有引用该预设的组件会自动更新。
+        </p>
+
+        <Button label="新建预设" icon="pi pi-plus" @click="openNewPreset" />
+
+        <div class="space-y-2">
+          <div v-for="preset in siteStore.currentSite?.groupClassPresets" :key="preset.id"
+               class="flex items-center justify-between p-3 border rounded">
+            <div>
+              <div class="font-medium">{{ preset.name }}</div>
+              <div class="text-xs text-gray-500">{{ preset.description }}</div>
+              <div class="flex flex-wrap gap-1 mt-1">
+                <Chip v-for="cls in preset.classes" :key="cls" :label="cls" size="small" />
+              </div>
+            </div>
+            <Button icon="pi pi-trash" variant="text" size="small" @click="deletePreset(preset.id)" />
+          </div>
+        </div>
+      </div>
+    </Drawer>
+
+    <!-- New/Edit Preset Dialog -->
+    <Dialog v-model:visible="presetEditVisible" :header="presetEditing?.id ? '编辑预设' : '新建预设'" modal>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm mb-1">名称</label>
+          <InputText v-model="presetDraft.name" fluid />
+        </div>
+        <div>
+          <label class="block text-sm mb-1">描述</label>
+          <InputText v-model="presetDraft.description" fluid />
+        </div>
+        <div>
+          <label class="block text-sm mb-1">类名</label>
+          <AutoComplete
+            v-model="presetDraft.classes"
+            :suggestions="[]"
+            multiple
+            fluid
+            placeholder="输入类名回车添加"
+            @complete="() => {}"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <Button label="取消" variant="outlined" @click="presetEditVisible = false" />
+        <Button label="保存" @click="savePreset" />
+      </template>
+    </Dialog>
+
     <!-- Inline controls -->
     <div v-if="inlineControls.length > 0" class="flex flex-col gap-3">
       <div v-for="c in inlineControls" :key="c.key" class="flex items-center justify-between">
@@ -156,7 +230,8 @@
 import { computed, ref, watch } from 'vue'
 import { useSiteStore } from '@/stores/site.store'
 import { getComponentMeta } from '@/editor/registry'
-import type { PropDef } from '@/shared/types/component'
+import type { PropDef, GroupClassPreset } from '@/shared/types/component'
+import { generateId } from '@/shared/utils/id'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Select from 'primevue/select'
@@ -170,6 +245,8 @@ import AccordionContent from 'primevue/accordioncontent'
 import Tooltip from 'primevue/tooltip'
 import AutoComplete from 'primevue/autocomplete'
 import Chip from 'primevue/chip'
+import Checkbox from 'primevue/checkbox'
+import Dialog from 'primevue/dialog'
 import CodeEditor from './CodeEditor.vue'
 import PtEditor from './PtEditor.vue'
 
@@ -301,5 +378,40 @@ watch(ptOptionsDialogVisible, (v) => {
 function savePTOptions() {
   if (comp.value) comp.value.props.ptOptions = { ...ptOptionsDraft.value }
   ptOptionsDialogVisible.value = false
+}
+
+// Preset management
+const presetDialogVisible = ref(false)
+const presetEditVisible = ref(false)
+const presetDraft = ref<GroupClassPreset>({ id: '', name: '', classes: [] })
+const presetEditing: Ref<GroupClassPreset | null> = ref(null)
+
+function openNewPreset() {
+  presetEditing.value = null
+  presetDraft.value = { id: generateId(), name: '', classes: [] }
+  presetEditVisible.value = true
+}
+
+function savePreset() {
+  if (!siteStore.currentSite) return
+  const presets = siteStore.currentSite.groupClassPresets
+  const existing = presets.find(p => p.id === presetDraft.value.id)
+  if (existing) {
+    Object.assign(existing, presetDraft.value)
+  } else {
+    presets.push({ ...presetDraft.value })
+  }
+  siteStore.persistCurrentSite()
+  presetEditVisible.value = false
+}
+
+function deletePreset(id: string) {
+  if (!siteStore.currentSite) return
+  siteStore.currentSite.groupClassPresets = siteStore.currentSite.groupClassPresets.filter(p => p.id !== id)
+  // Remove references from selected component
+  if (comp.value) {
+    comp.value.styles.groupRefs = comp.value.styles.groupRefs.filter(refId => refId !== id)
+    siteStore.persistCurrentSite()
+  }
 }
 </script>
