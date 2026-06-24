@@ -36,10 +36,10 @@
             />
 
             <!-- Grouped class display -->
-            <div v-for="(grouped, groupName) in groupedClasses" :key="groupName">
-              <AccordionPanel :value="groupName">
-                <AccordionHeader class="text-xs">{{ groupName }}</AccordionHeader>
-                <AccordionContent>
+            <div v-for="[groupName, grouped] in nonEmptyGroups" :key="groupName">
+              <AccordionPanel :value="groupName" :pt="{ root: '!border-b-0' }">
+                <AccordionHeader class="text-xs !py-1 !px-2">{{ groupName }}</AccordionHeader>
+                <AccordionContent :pt="{ content: '!py-1 !px-2' }">
                   <div class="flex flex-wrap gap-1">
                     <Chip
                       v-for="cls in grouped"
@@ -266,7 +266,7 @@ const sections = computed(() => {
 const titledSections = computed(() => sections.value.filter(s => s.title))
 const inlineSections = computed(() => sections.value.filter(s => !s.title))
 const openKeys = computed(() => {
-  const keys: string[] = [...titledSections.value.map(s => s.title!), '__styles', '__pt']
+  const keys: string[] = [...titledSections.value.map(s => s.title!), '__presets', '__styles', '__pt']
   for (const [name, cls] of Object.entries(groupedClasses.value)) {
     if (cls.length > 0) keys.push(name)
   }
@@ -362,6 +362,10 @@ function groupClasses(classes: string[]): Record<string, string[]> {
 }
 
 const groupedClasses = computed(() => groupClasses(stylesDraft.value.classes))
+
+const nonEmptyGroups = computed(() =>
+  Object.entries(groupedClasses.value).filter(([, cls]) => cls.length > 0),
+)
 
 function removeClass(cls: string) {
   stylesDraft.value.classes = stylesDraft.value.classes.filter(c => c !== cls)

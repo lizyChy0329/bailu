@@ -9,10 +9,10 @@
       :typeahead="false"
       @keydown="onKeyDown"
     />
-    <Accordion :value="openGroups" multiple>
-      <AccordionPanel v-for="(grouped, groupName) in groupedClasses" :key="groupName" :value="groupName">
-        <AccordionHeader class="text-xs">{{ groupName }}</AccordionHeader>
-        <AccordionContent>
+    <Accordion :value="openGroups" multiple class="!gap-0">
+      <AccordionPanel v-for="[groupName, grouped] in nonEmptyGroups" :key="groupName" :value="groupName" :pt="{ root: '!border-b-0' }">
+        <AccordionHeader class="text-xs !py-1 !px-2">{{ groupName }}</AccordionHeader>
+        <AccordionContent :pt="{ content: '!py-1 !px-2' }">
           <div class="flex flex-wrap gap-1">
             <Chip v-for="cls in grouped" :key="cls" :label="cls" size="small" removable class="!text-xs !px-2 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" @remove="removeClass(cls)" />
           </div>
@@ -93,6 +93,10 @@ function groupClasses(classes: string[]): Record<string, string[]> {
 }
 
 const groupedClasses = computed(() => groupClasses(classes.value))
+
+const nonEmptyGroups = computed(() =>
+  Object.entries(groupedClasses.value).filter(([, cls]) => cls.length > 0),
+)
 
 const openGroups = computed(() =>
   Object.entries(groupedClasses.value)
