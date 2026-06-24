@@ -16,10 +16,16 @@ export const useSiteStore = defineStore('site', () => {
   const currentSite = ref<SiteConfig | null>(null)
   const selectedComponentId = ref<string | null>(null)
 
-  async function loadSites() {
-    const all = await loadAllSites()
-    sites.value = all ?? []
+async function loadSites() {
+  const all = await loadAllSites()
+  // Migrate old data format
+  for (const site of (all ?? [])) {
+    for (const comp of site.components) {
+      migrateComponent(comp)
+    }
   }
+  sites.value = all ?? []
+}
 
   async function createSite(): Promise<string> {
     const id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
@@ -207,13 +213,47 @@ export const useSiteStore = defineStore('site', () => {
     return null
   }
 
-  async function loadCurrentSite(id: string) {
-    const site = await loadSite(id)
-    if (site) {
-      currentSite.value = site
-      selectedComponentId.value = null
+function migrateComponent(node: ComponentNode): ComponentNode {
+  // Migrate styles.class string → classes array
+  if (node.styles?.class && typeof node.styles.class === 'string') {
+    node.styles.classes = node.styles.class.split(' ').filter(Boolean)
+    delete node.styles.class
+  }
+
+  // Migrate pt[*].class string → classes array
+  if (node.pt) {
+    for (const key of Object.keys(node.pt)) {
+      const ptNode = node.pt[key]
+      if (ptNode.class && typeof ptNode.class === 'string') {
+        ptNode.classes = ptNode.class.split(' ').filter(Boolean)
+        delete ptNode.class
+      }
     }
   }
+
+  // Recursively migrate slots
+  if (node.slots) {
+    for (const slotName of Object.keys(node.slots)) {
+      for (const child of node.slots[slotName]) {
+        migrateComponent(child)
+      }
+    }
+  }
+
+  return node
+}
+
+async function loadCurrentSite(id: string) {
+  const site = await loadSite(id)
+  if (site) {
+    // Migrate old data format
+    for (const comp of site.components) {
+      migrateComponent(comp)
+    }
+    currentSite.value = site
+    selectedComponentId.value = null
+  }
+}
 
   async function persistCurrentSite() {
     if (currentSite.value) {
