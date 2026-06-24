@@ -1,7 +1,7 @@
 <template>
   <Panel
     v-bind="node.props"
-    :class="node.styles?.class"
+    :class="finalClass"
     :style="node.styles?.style"
     :pt="node.pt"
   >
@@ -21,9 +21,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import Panel from 'primevue/panel'
 import type { ComponentNode } from '@/shared/types/component'
 import Renderer from '@/renderer/core/Renderer.vue'
+import { computeFinalClasses } from '@/shared/utils/classMerger'
 
-defineProps<{ node: ComponentNode }>()
+const props = defineProps<{ node: ComponentNode }>()
+const finalClass = computed(() => computeFinalClasses(props.node))
 </script>

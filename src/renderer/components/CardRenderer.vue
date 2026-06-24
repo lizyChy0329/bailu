@@ -1,5 +1,5 @@
 <template>
-  <Card v-bind="node.props" :class="node.styles?.class" :style="node.styles?.style" :pt="node.pt">
+  <Card v-bind="node.props" :class="finalClass" :style="node.styles?.style" :pt="node.pt">
     <template #header>
       <template v-if="(node?.slotVisibility?.header??true)">
         <Renderer v-if="node?.slots?.header?.length" :dsl="node.slots.header"/>
@@ -38,8 +38,12 @@
   </Card>
 </template>
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ComponentNode } from '@/shared/types/component'
 import Card from 'primevue/card'
 import Renderer from '@/renderer/core/Renderer.vue'
-defineProps<{ node: ComponentNode }>()
+import { computeFinalClasses } from '@/shared/utils/classMerger'
+
+const props = defineProps<{ node: ComponentNode }>()
+const finalClass = computed(() => computeFinalClasses(props.node))
 </script>
