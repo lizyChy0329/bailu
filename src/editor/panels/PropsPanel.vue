@@ -1,6 +1,7 @@
 <template>
   <div class="space-y-3">
     <Accordion :value="openKeys" multiple>
+      <!-- Component prop sections -->
       <AccordionPanel v-for="s in titledSections" :key="s.title" :value="s.title">
         <AccordionHeader class="text-sm">{{ s.title }}</AccordionHeader>
         <AccordionContent>
@@ -19,6 +20,43 @@
         </AccordionContent>
       </AccordionPanel>
 
+      <!-- Styles section -->
+      <AccordionPanel value="__styles">
+        <AccordionHeader class="text-sm">样式类</AccordionHeader>
+        <AccordionContent>
+          <div class="space-y-3">
+            <!-- Quick add input -->
+            <AutoComplete
+              v-model="stylesDraft.classes"
+              :suggestions="[]"
+              multiple
+              fluid
+              placeholder="输入类名回车添加"
+              @complete="() => {}"
+            />
+
+            <!-- Grouped class display -->
+            <div v-for="(grouped, groupName) in groupedClasses" :key="groupName">
+              <AccordionPanel :value="groupName">
+                <AccordionHeader class="text-xs">{{ groupName }}</AccordionHeader>
+                <AccordionContent>
+                  <div class="flex flex-wrap gap-1">
+                    <Chip
+                      v-for="cls in grouped"
+                      :key="cls"
+                      :label="cls"
+                      removable
+                      @remove="removeClass(cls)"
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionPanel>
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionPanel>
+
+      <!-- PT section -->
       <AccordionPanel value="__pt">
         <AccordionHeader class="text-sm">
           <span class="relative">
@@ -38,6 +76,7 @@
         </AccordionContent>
       </AccordionPanel>
 
+      <!-- Advanced section -->
       <AccordionPanel value="__advanced">
         <AccordionHeader class="text-sm">
           <span class="relative">
@@ -63,19 +102,23 @@
       </AccordionPanel>
     </Accordion>
 
+    <!-- DT Drawer -->
     <Drawer v-model:visible="dtDialogVisible" position="left" :header="'DT 覆写 — ' + (meta?.label ?? '')" class="!w-[600px]">
-      <div class="flex-1">
-        <CodeEditor v-model="dtDraft" />
+      <div class="flex flex-col flex-1 min-h-0">
+        <div class="flex-1 min-h-0">
+          <CodeEditor v-model="dtDraft" />
+        </div>
+        <p class="text-xs text-gray-400 mt-2 shrink-0">
+          <i class="pi pi-info-circle mr-1" />设计 token 对象，生成 --p-* CSS 变量
+        </p>
       </div>
-      <p class="text-xs text-gray-400 mt-2">
-        <i class="pi pi-info-circle mr-1" />设计 token 对象，生成 --p-* CSS 变量
-      </p>
       <template #footer>
         <Button label="取消" severity="secondary" variant="outlined" @click="dtDialogVisible = false" />
         <Button label="保存" @click="saveDT" />
       </template>
     </Drawer>
 
+    <!-- PT Options Drawer -->
     <Drawer v-model:visible="ptOptionsDialogVisible" position="left" :header="'PT 选项 — ' + (meta?.label ?? '')" class="!w-[480px]">
       <div class="flex flex-col gap-4">
         <div>
@@ -99,6 +142,7 @@
       </template>
     </Drawer>
 
+    <!-- Inline controls -->
     <div v-if="inlineControls.length > 0" class="flex flex-col gap-3">
       <div v-for="c in inlineControls" :key="c.key" class="flex items-center justify-between">
         <span class="text-xs text-gray-500">{{ c.label }}</span>
@@ -124,6 +168,8 @@ import AccordionPanel from 'primevue/accordionpanel'
 import AccordionHeader from 'primevue/accordionheader'
 import AccordionContent from 'primevue/accordioncontent'
 import Tooltip from 'primevue/tooltip'
+import AutoComplete from 'primevue/autocomplete'
+import Chip from 'primevue/chip'
 import CodeEditor from './CodeEditor.vue'
 import PtEditor from './PtEditor.vue'
 
@@ -140,13 +186,83 @@ const sections = computed(() => {
 })
 const titledSections = computed(() => sections.value.filter(s => s.title))
 const inlineSections = computed(() => sections.value.filter(s => !s.title))
-const openKeys = computed(() => [...titledSections.value.map(s => s.title!), '__pt'])
+const openKeys = computed(() => [...titledSections.value.map(s => s.title!), '__styles', '__pt'])
 const inlineControls = computed(() => {
   const r: PropDef[] = []
   for (const s of inlineSections.value) r.push(...s.controls)
   return r
 })
 
+// Styles draft state
+const stylesDraft = ref({
+  classes: [] as string[],
+  groupRefs: [] as string[],
+})
+
+// Initialize stylesDraft from selected component
+watch(comp, (newComp) => {
+  if (newComp) {
+    stylesDraft.value = {
+      classes: newComp.styles?.classes ?? [],
+      groupRefs: newComp.styles?.groupRefs ?? [],
+    }
+  }
+}, { immediate: true })
+
+// Sync stylesDraft back to component
+watch(stylesDraft, (newVal) => {
+  if (comp.value) {
+    comp.value.styles.classes = newVal.classes
+    comp.value.styles.groupRefs = newVal.groupRefs
+    siteStore.persistCurrentSite()
+  }
+}, { deep: true })
+
+// Class grouping configuration
+const classGroups: Record<string, string[]> = {
+  '间距': ['p-', 'm-', 'gap-', 'space-'],
+  '圆角': ['rounded-'],
+  '阴影': ['shadow-'],
+  '背景': ['bg-'],
+  '边框': ['border-'],
+  '排版': ['text-', 'font-', 'leading-', 'tracking-'],
+  '布局': ['flex-', 'grid-', 'w-', 'h-', 'max-', 'min-'],
+  '其他': [],
+}
+
+function groupClasses(classes: string[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {
+    '间距': [],
+    '圆角': [],
+    '阴影': [],
+    '背景': [],
+    '边框': [],
+    '排版': [],
+    '布局': [],
+    '其他': [],
+  }
+  for (const cls of classes) {
+    let matched = false
+    for (const [groupName, prefixes] of Object.entries(classGroups)) {
+      if (groupName === '其他') continue
+      if (prefixes.some(p => cls.startsWith(p))) {
+        result[groupName].push(cls)
+        matched = true
+        break
+      }
+    }
+    if (!matched) result['其他'].push(cls)
+  }
+  return result
+}
+
+const groupedClasses = computed(() => groupClasses(stylesDraft.value.classes))
+
+function removeClass(cls: string) {
+  stylesDraft.value.classes = stylesDraft.value.classes.filter(c => c !== cls)
+}
+
+// PT
 const hasPtModifications = computed(() => {
   if (!comp.value?.pt) return false
   return Object.values(comp.value.pt).some((v: any) => v?.class)
