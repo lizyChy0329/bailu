@@ -27,13 +27,13 @@
           <div class="space-y-3">
             <!-- Quick add input -->
             <AutoComplete
-              v-model="stylesDraft.classes"
+              v-model="newClassInput"
               :suggestions="[]"
-              multiple
               fluid
               placeholder="输入类名回车添加"
               :typeahead="false"
               @complete="() => {}"
+              @keydown.enter.prevent="addClass"
             />
 
             <!-- Grouped class display -->
@@ -277,6 +277,17 @@ const stylesDraft = ref({
   classes: [] as string[],
   groupRefs: [] as string[],
 })
+
+// New class input (single-value, not multiple)
+const newClassInput = ref('')
+
+function addClass() {
+  const cls = newClassInput.value.trim()
+  if (cls && !stylesDraft.value.classes.includes(cls)) {
+    stylesDraft.value.classes.push(cls)
+  }
+  newClassInput.value = ''
+}
 
 // Initialize stylesDraft from selected component
 watch(comp, (newComp) => {

@@ -151,6 +151,9 @@ onMounted(() => {
       const src = source.data as unknown as DragSourceData
       isPaletteOverTree.value = src.source === 'palette'
     },
+    onDrop() {
+      isPaletteOverTree.value = false
+    },
     onDragLeave() {
       isPaletteOverTree.value = false
     },

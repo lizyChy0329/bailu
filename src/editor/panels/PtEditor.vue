@@ -11,13 +11,13 @@
           <AccordionContent>
             <label class="text-xs text-gray-500 mb-1 block">class</label>
             <AutoComplete
-              v-model="draft[node.name]!.classes"
+              v-model="draft[node.name]!.classInput"
               :suggestions="[]"
-              multiple
               fluid
               placeholder="输入类名回车添加"
               :typeahead="false"
               @complete="() => {}"
+              @keydown.enter.prevent="() => addPtClass(node.name)"
             />
           </AccordionContent>
         </AccordionPanel>
@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import type { PTNodeMeta } from '@/shared/types/component'
 import Drawer from 'primevue/drawer'
 import SelectButton from 'primevue/selectbutton'
@@ -120,6 +120,18 @@ function ensureAllNodes() {
   }
 }
 
+function addPtClass(nodeName: string) {
+  const input = draft.value[nodeName]?.classInput?.trim()
+  if (input) {
+    if (!draft.value[nodeName]) draft.value[nodeName] = {}
+    if (!draft.value[nodeName].classes) draft.value[nodeName].classes = []
+    if (!draft.value[nodeName].classes.includes(input)) {
+      draft.value[nodeName].classes.push(input)
+    }
+    draft.value[nodeName].classInput = ''
+  }
+}
+
 watch(mode, (m) => {
   if (m === 'monaco') {
     monacoText.value = JSON.stringify(draft.value, null, 2)
@@ -154,6 +166,8 @@ function save() {
         result[name].class = result[name].classes.join(' ')
         delete result[name].classes
       }
+      // Remove temporary classInput field
+      delete result[name]?.classInput
     }
   }
   emit('save', result)
