@@ -32,6 +32,7 @@
               multiple
               fluid
               placeholder="输入类名回车添加"
+              :typeahead="false"
               @complete="() => {}"
             />
 
@@ -206,6 +207,7 @@
             multiple
             fluid
             placeholder="输入类名回车添加"
+            :typeahead="false"
             @complete="() => {}"
           />
         </div>
