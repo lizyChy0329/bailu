@@ -42,6 +42,12 @@
 - `toRaw()` + `structuredClone()` for Dexie saves (never pass reactive proxies directly)
 - apply_patch file updates may fail — delete + recreate as workaround
 - shell (`zsh`) may be intermittently unavailable in sandbox
+- `DataTransfer.types.includes()` is NOT cross-browser: Chrome uses `ReadonlyArray<string>` (`.includes` OK), Firefox uses `DOMStringList` (only `.contains()`). Always use `Array.from(types).includes()` or check `types.contains()`.
+- PrimeVue Tree's `draggableNodes`/`droppableNodes` + `@nodeDrop` only handle tree-internal node reorder. They do NOT fire for external palette drops. Do NOT use them for palette→tree drag-and-drop.
+- PrimeVue Tree may `stopPropagation()` on its internal DnD events. Container-level `@dragover`/`@drop` handlers may NOT fire when the cursor is over tree nodes. Use `@atlaskit/pragmatic-drag-and-drop`'s `dropTargetForElements` on each `.p-tree-node` element directly instead.
+- When adding a virtual root node (`__root__`) in the tree, ensure `parentId` is converted to `'root'` (lowercase, no underscores) before passing to `siteStore.addComponent()` / `siteStore.moveComponent()`. The store only recognizes `'root'` as the root level.
+- `querySelectorAll('.p-tree-node')` + flat node index matching is brittle. PrimeVue Tree may cache/stagger renders, causing DOM-to-data index mismatch after mutations. Use function refs + `.closest('.p-tree-node')` per-node for reliable element access.
+- `@atlaskit/pragmatic-drag-and-drop` is vanilla JS, works with any framework. Key APIs: `draggable()`, `dropTargetForElements()`, `monitorForElements()`, `combine()`. For edge detection: `attachClosestEdge()` + `extractClosestEdge()` from `@atlaskit/pragmatic-drag-and-drop-hitbox`.
 
 ## Agent skills
 

@@ -8,12 +8,12 @@
           <div class="flex flex-col gap-3 pt-2">
             <div v-for="c in s.controls" :key="c.key">
               <label v-if="c.control !== 'switch'" class="text-xs text-gray-500 mb-1 block">{{ c.label }}</label>
-              <InputText v-if="c.control === 'text-input'" :model-value="comp!.props[c.key]" @update:model-value="comp!.props[c.key] = $event" fluid />
-              <InputNumber v-else-if="c.control === 'number-input'" :model-value="comp!.props[c.key]" @update:model-value="comp!.props[c.key] = $event" fluid />
+              <InputText v-if="c.control === 'text-input'" :model-value="comp!.props[c.key] as string" @update:model-value="comp!.props[c.key] = $event" fluid />
+              <InputNumber v-else-if="c.control === 'number-input'" :model-value="comp!.props[c.key] as number" @update:model-value="comp!.props[c.key] = $event" fluid />
               <Select v-else-if="c.control === 'select'" :model-value="comp!.props[c.key]" @update:model-value="comp!.props[c.key] = $event" :options="c.options" option-label="label" option-value="value" fluid />
               <div v-else-if="c.control === 'switch'" class="flex items-center justify-between">
                 <span class="text-xs text-gray-500">{{ c.label }}</span>
-                <ToggleSwitch :model-value="comp!.props[c.key]" @update:model-value="comp!.props[c.key] = $event" />
+                <ToggleSwitch :model-value="comp!.props[c.key] as boolean" @update:model-value="comp!.props[c.key] = $event" />
               </div>
             </div>
           </div>
@@ -220,14 +220,14 @@
     <div v-if="inlineControls.length > 0" class="flex flex-col gap-3">
       <div v-for="c in inlineControls" :key="c.key" class="flex items-center justify-between">
         <span class="text-xs text-gray-500">{{ c.label }}</span>
-        <ToggleSwitch :model-value="comp!.props[c.key]" @update:model-value="comp!.props[c.key] = $event" />
+        <ToggleSwitch :model-value="comp!.props[c.key] as boolean" @update:model-value="comp!.props[c.key] = $event" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { useSiteStore } from '@/stores/site.store'
 import { getComponentMeta } from '@/editor/registry'
 import type { PropDef, GroupClassPreset } from '@/shared/types/component'

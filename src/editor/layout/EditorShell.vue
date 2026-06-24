@@ -40,11 +40,12 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useAppStore } from '@/stores/app.store'
 import { useSiteStore } from '@/stores/site.store'
+import { startMonitor, stopMonitor } from '@/composables/useDragDrop'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import SelectButton from 'primevue/selectbutton'
@@ -91,9 +92,11 @@ function onMouseUp() {
   document.removeEventListener('mousemove', onMouseMove)
   document.removeEventListener('mouseup', onMouseUp)
 }
+onMounted(() => startMonitor())
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', onMouseMove)
   document.removeEventListener('mouseup', onMouseUp)
+  stopMonitor()
 })
 function goBack() { router.push('/') }
 function handleTitleChange() { if (siteStore.currentSite) siteStore.currentSite.title = siteTitle.value || '未命名站点' }

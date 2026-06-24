@@ -1,5 +1,14 @@
 import Dexie, { type Table } from 'dexie'
-export interface SiteRecord { id: string; title: string; components: any[]; createdAt: number; updatedAt: number }
+import type { ComponentNode, GroupClassPreset } from '@/shared/types/component'
+
+export interface SiteRecord {
+  id: string
+  title: string
+  components: ComponentNode[]
+  createdAt: number
+  updatedAt: number
+  groupClassPresets: GroupClassPreset[]
+}
 class BailuDB extends Dexie {
   sites!: Table<SiteRecord, string>
   constructor() { super('bailu'); this.version(1).stores({ sites: 'id, title, createdAt, updatedAt' }) }

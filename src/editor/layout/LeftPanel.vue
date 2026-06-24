@@ -6,8 +6,8 @@
           <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{{ group.name }}</h3>
           <div class="grid grid-cols-3 gap-2">
             <div v-for="meta in group.items" :key="meta.type"
-              class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 dark:border-gray-700 cursor-grab hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-              draggable="true" @dragstart="onDragStart($event, meta.type)">
+              :ref="(el) => setupDraggable(el as HTMLElement | null, meta.type)"
+              class="flex flex-col items-center gap-1 p-2 rounded-lg border border-gray-200 dark:border-gray-700 cursor-grab select-none hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
               <i :class="meta.icon" class="text-lg" />
               <span class="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ meta.label }}</span>
             </div>
@@ -25,19 +25,26 @@
 <script setup lang="ts">
 import type { ComponentMeta, ComponentType } from '@/shared/types/component'
 import { getComponentMeta } from '@/editor/registry'
+import { useDragDrop } from '@/composables/useDragDrop'
 import ComponentTree from '@/editor/tree/ComponentTree.vue'
 import Splitter from 'primevue/splitter'
 import SplitterPanel from 'primevue/splitterpanel'
+
+const { registerDraggable, trackCleanup, replaceCleanup } = useDragDrop()
+
 type ComponentGroup = { name: string; items: ComponentMeta[] }
 const groupDefs: { name: string; types: ComponentType[] }[] = [
   { name: '布局类', types: ['Card', 'Panel', 'ScrollPanel'] },
   { name: '内容类', types: ['Image'] },
   { name: '交互类', types: ['Button'] },
 ]
-const groups: ComponentGroup[] = groupDefs.map((g) => ({
-  name: g.name, items: g.types.map((t) => getComponentMeta(t)).filter(Boolean) as ComponentMeta[],
-})).filter((g) => g.items.length > 0)
-function onDragStart(event: DragEvent, type: ComponentType) {
-  if (event.dataTransfer) { event.dataTransfer.setData('component-type', type); event.dataTransfer.effectAllowed = 'copy' }
+const groups: ComponentGroup[] = groupDefs
+  .map((g) => ({ name: g.name, items: g.types.map((t) => getComponentMeta(t)).filter(Boolean) as ComponentMeta[] }))
+  .filter((g) => g.items.length > 0)
+
+function setupDraggable(el: HTMLElement | null, type: ComponentType) {
+  const key = `palette:${type}`
+  if (!el) { trackCleanup(key, () => {}); return }
+  replaceCleanup(key, () => registerDraggable(el, { source: 'palette', componentType: type }))
 }
 </script>

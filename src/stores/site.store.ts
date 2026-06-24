@@ -214,18 +214,23 @@ async function loadSites() {
   }
 
 function migrateComponent(node: ComponentNode): ComponentNode {
-  // Migrate styles.class string → classes array
-  if (node.styles?.class && typeof node.styles.class === 'string') {
-    node.styles.classes = node.styles.class.split(' ').filter(Boolean)
-    delete node.styles.class
+  // Migrate styles.class string → classes array (backward compatibility)
+  const styles = node.styles as any
+  if (styles?.class && typeof styles.class === 'string') {
+    if (!node.styles.classes) {
+      node.styles.classes = styles.class.split(' ').filter(Boolean)
+    }
+    delete styles.class
   }
 
-  // Migrate pt[*].class string → classes array
+  // Migrate pt[*].class string → classes array (backward compatibility)
   if (node.pt) {
     for (const key of Object.keys(node.pt)) {
-      const ptNode = node.pt[key]
+      const ptNode = node.pt[key] as any
       if (ptNode.class && typeof ptNode.class === 'string') {
-        ptNode.classes = ptNode.class.split(' ').filter(Boolean)
+        if (!ptNode.classes) {
+          ptNode.classes = ptNode.class.split(' ').filter(Boolean)
+        }
         delete ptNode.class
       }
     }
@@ -272,6 +277,7 @@ async function loadCurrentSite(id: string) {
     duplicateComponent,
     selectComponent,
     loadCurrentSite,
+    loadSite: loadCurrentSite, // alias for backward compatibility
     persistCurrentSite,
     loadSites,
     createSite,

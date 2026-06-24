@@ -11,7 +11,11 @@ import Textarea from 'primevue/textarea'
 const siteStore = useSiteStore()
 const comp = computed(() => siteStore.selectedComponent)
 const classText = computed({
-  get: () => comp.value?.styles?.class ?? '',
-  set: (val) => { if (comp.value) comp.value.styles.class = val },
+  get: () => comp.value?.styles?.classes?.join(' ') ?? '',
+  set: (val) => {
+    if (comp.value) {
+      comp.value.styles.classes = val.split(' ').filter(Boolean)
+    }
+  },
 })
 </script>
