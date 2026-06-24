@@ -1,4 +1,4 @@
-import type { ComponentNode } from './component'
+import type { ComponentNode, GroupClassPreset } from './component'
 
 export interface SiteConfig {
   id: string
@@ -6,4 +6,5 @@ export interface SiteConfig {
   components: ComponentNode[]
   createdAt: number
   updatedAt: number
+  groupClassPresets: GroupClassPreset[]
 }
