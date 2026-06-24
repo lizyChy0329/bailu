@@ -1,19 +1,30 @@
 <template>
   <Drawer v-model:visible="dialogVisible" position="left" :header="'PT 覆写 — ' + componentLabel" class="!w-[640px]">
-    <SelectButton v-model="mode" :options="modeOptions" option-value="key" option-label="label" class="mb-3" size="small" />
+    <div class="flex flex-col flex-1 min-h-0 gap-3 h-full">
+      <PtDiagram v-if="rootNode" :node="rootNode" />
 
-    <Accordion v-if="mode === 'structured'" multiple class="flex-1 overflow-y-auto" :value="openPtNodes">
-      <AccordionPanel v-for="node in ptNodes" :key="node.name" :value="node.name">
-        <AccordionHeader class="text-sm">{{ node.label }} ({{ node.name }})</AccordionHeader>
-        <AccordionContent>
-          <label class="text-xs text-gray-500 mb-1 block">class</label>
-          <InputText v-model="draft[node.name]!.class" fluid />
-        </AccordionContent>
-      </AccordionPanel>
-    </Accordion>
+      <SelectButton v-model="mode" :options="modeOptions" option-value="key" option-label="label" class="shrink-0" size="small" />
 
-    <div v-else class="flex-1">
-      <CodeEditor v-model="monacoText" />
+      <Accordion v-if="mode === 'structured'" multiple class="flex-1 overflow-y-auto min-h-0" :value="openPtNodes">
+        <AccordionPanel v-for="node in flatNodes" :key="node.name" :value="node.name">
+          <AccordionHeader class="text-sm">{{ node.label }} ({{ node.name }})</AccordionHeader>
+          <AccordionContent>
+            <label class="text-xs text-gray-500 mb-1 block">class</label>
+            <AutoComplete
+              v-model="draft[node.name]!.classes"
+              :suggestions="[]"
+              multiple
+              fluid
+              placeholder="输入类名回车添加"
+              @complete="() => {}"
+            />
+          </AccordionContent>
+        </AccordionPanel>
+      </Accordion>
+
+      <div v-else class="flex-1 min-h-0">
+        <CodeEditor v-model="monacoText" />
+      </div>
     </div>
 
     <template #footer>
@@ -33,8 +44,10 @@ import AccordionPanel from 'primevue/accordionpanel'
 import AccordionHeader from 'primevue/accordionheader'
 import AccordionContent from 'primevue/accordioncontent'
 import InputText from 'primevue/inputtext'
+import AutoComplete from 'primevue/autocomplete'
 import Button from 'primevue/button'
 import CodeEditor from './CodeEditor.vue'
+import PtDiagram from './PtDiagram.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -61,8 +74,22 @@ const modeOptions = [
 
 const ptNodes = computed(() => props.ptNodes ?? [])
 
+const rootNode = computed(() => ptNodes.value[0])
+
+const flatNodes = computed(() => flattenPTNodes(ptNodes.value))
+
+function flattenPTNodes(nodes: PTNodeMeta[]): PTNodeMeta[] {
+  const result: PTNodeMeta[] = []
+  for (const n of nodes) {
+    const { children, ...rest } = n
+    result.push(rest)
+    if (children) result.push(...flattenPTNodes(children))
+  }
+  return result
+}
+
 const openPtNodes = computed(() =>
-  ptNodes.value.filter(n => draft.value[n.name]?.class).map(n => n.name),
+  flatNodes.value.filter(n => draft.value[n.name]?.class).map(n => n.name),
 )
 
 const draft = ref<Record<string, any>>({})
@@ -77,10 +104,17 @@ watch(() => props.visible, (v) => {
 })
 
 function ensureAllNodes() {
-  for (const n of ptNodes.value) {
+  for (const n of flatNodes.value) {
     if (!draft.value[n.name]) draft.value[n.name] = {}
     if (typeof draft.value[n.name] === 'object' && !Array.isArray(draft.value[n.name])) {
-      if (!('class' in draft.value[n.name])) draft.value[n.name].class = ''
+      // Support both class (string, backward compat) and classes (array, new)
+      if (!('class' in draft.value[n.name]) && !('classes' in draft.value[n.name])) {
+        draft.value[n.name].classes = []
+      }
+      // Convert old class string to classes array
+      if (draft.value[n.name].class && !draft.value[n.name].classes) {
+        draft.value[n.name].classes = (draft.value[n.name].class as string).split(' ').filter(Boolean)
+      }
     }
   }
 }
@@ -104,13 +138,24 @@ function cancel() {
 }
 
 function save() {
+  let result: Record<string, any>
   if (mode.value === 'monaco') {
     try {
-      emit('save', JSON.parse(monacoText.value))
-    } catch {}
+      result = JSON.parse(monacoText.value)
+    } catch {
+      result = {}
+    }
   } else {
-    emit('save', draft.value)
+    result = JSON.parse(JSON.stringify(draft.value))
+    // Convert classes array back to class string for backward compatibility
+    for (const name of Object.keys(result)) {
+      if (result[name]?.classes && Array.isArray(result[name].classes)) {
+        result[name].class = result[name].classes.join(' ')
+        delete result[name].classes
+      }
+    }
   }
+  emit('save', result)
   emit('update:visible', false)
 }
 </script>
