@@ -32,7 +32,7 @@
               fluid
               placeholder="输入类名回车添加"
               :typeahead="false"
-              @keydown.enter.prevent="addClass"
+              @keydown="onKeyDown"
             />
 
             <!-- Grouped class display -->
@@ -45,7 +45,9 @@
                       v-for="cls in grouped"
                       :key="cls"
                       :label="cls"
+                      size="small"
                       removable
+                      class="!text-xs !px-2 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
                       @remove="removeClass(cls)"
                     />
                   </div>
@@ -263,7 +265,13 @@ const sections = computed(() => {
 })
 const titledSections = computed(() => sections.value.filter(s => s.title))
 const inlineSections = computed(() => sections.value.filter(s => !s.title))
-const openKeys = computed(() => [...titledSections.value.map(s => s.title!), '__styles', '__pt'])
+const openKeys = computed(() => {
+  const keys: string[] = [...titledSections.value.map(s => s.title!), '__styles', '__pt']
+  for (const [name, cls] of Object.entries(groupedClasses.value)) {
+    if (cls.length > 0) keys.push(name)
+  }
+  return keys
+})
 const inlineControls = computed(() => {
   const r: PropDef[] = []
   for (const s of inlineSections.value) r.push(...s.controls)
@@ -287,6 +295,15 @@ function addClass() {
   newClassInput.value = ''
 }
 
+function onKeyDown(e: KeyboardEvent) {
+  console.log('[PropsPanel] onKeyDown', e.key, 'target:', (e.target as HTMLInputElement)?.value)
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    newClassInput.value = (e.target as HTMLInputElement)?.value ?? ''
+    addClass()
+  }
+}
+
 // Initialize stylesDraft from selected component
 watch(comp, (newComp) => {
   if (newComp) {
@@ -308,13 +325,13 @@ watch(stylesDraft, (newVal) => {
 
 // Class grouping configuration
 const classGroups: Record<string, string[]> = {
-  '间距': ['p-', 'm-', 'gap-', 'space-'],
+  '间距': ['p-', 'pt-', 'pr-', 'pb-', 'pl-', 'px-', 'py-', 'm-', 'mt-', 'mr-', 'mb-', 'ml-', 'mx-', 'my-', 'gap-', 'gap-x-', 'gap-y-', 'space-', 'space-x-', 'space-y-'],
   '圆角': ['rounded-'],
   '阴影': ['shadow-'],
   '背景': ['bg-'],
   '边框': ['border-'],
-  '排版': ['text-', 'font-', 'leading-', 'tracking-'],
-  '布局': ['flex-', 'grid-', 'w-', 'h-', 'max-', 'min-'],
+  '字体': ['text-', 'font-', 'leading-', 'tracking-'],
+  '布局': ['flex-', 'grid-', 'w-', 'h-', 'size-', 'max-', 'min-'],
   '其他': [],
 }
 
@@ -325,7 +342,7 @@ function groupClasses(classes: string[]): Record<string, string[]> {
     '阴影': [],
     '背景': [],
     '边框': [],
-    '排版': [],
+    '字体': [],
     '布局': [],
     '其他': [],
   }
