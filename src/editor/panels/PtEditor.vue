@@ -16,7 +16,6 @@
               fluid
               placeholder="输入类名回车添加"
               :typeahead="false"
-              @complete="() => {}"
               @keydown.enter.prevent="() => addPtClass(node.name)"
             />
           </AccordionContent>
