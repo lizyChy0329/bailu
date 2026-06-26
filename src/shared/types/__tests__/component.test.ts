@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 describe('Component Types', () => {
   it('validates ComponentType union', () => {
-    const types = ['Card', 'Image', 'Button', 'Panel', 'ScrollPanel'] as const
+    const types = ['Card', 'Image', 'Button', 'Panel', 'ScrollPanel', 'Page', 'BackgroundContainer'] as const
     type Valid = (typeof types)[number]
     // 确保联合类型编译通过
     const _check: Valid = 'Card'

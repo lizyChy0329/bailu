@@ -4,7 +4,7 @@ import type { ComponentNode, GroupClassPreset } from '@/shared/types/component'
 export interface SiteRecord {
   id: string
   title: string
-  components: ComponentNode[]
+  page: ComponentNode
   createdAt: number
   updatedAt: number
   groupClassPresets: GroupClassPreset[]
@@ -12,6 +12,8 @@ export interface SiteRecord {
 class BailuDB extends Dexie {
   sites!: Table<SiteRecord, string>
   constructor() { super('bailu'); this.version(1).stores({ sites: 'id, title, createdAt, updatedAt' }) }
+  // version 2: migrate components[] → page node
+  // checked at read time in store for backward compatibility
 }
 const db = new BailuDB()
 export async function saveSite(site: SiteRecord) { await db.sites.put({ ...site }) }

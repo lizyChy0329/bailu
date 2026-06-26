@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, toRaw } from 'vue'
 import type { SiteConfig } from '@/shared/types/site'
-import type { ComponentNode, ComponentType, GroupClassPreset } from '@/shared/types/component'
+import type { ComponentNode, ComponentType } from '@/shared/types/component'
 import { getComponentMeta } from '@/editor/registry'
 import { loadSite, loadAllSites, saveSite, deleteSite } from '@/db'
 
@@ -11,28 +11,36 @@ function generateComponentId(): string {
   return `comp_${++componentIdCounter}_${Date.now()}`
 }
 
+function createDefaultPageNode(): ComponentNode {
+  return {
+    id: 'page',
+    type: 'Page',
+    props: { backgroundImage: '' },
+    styles: { classes: ['min-h-screen', 'w-full'], style: {}, groupRefs: [] },
+    slots: { default: [] },
+    slotVisibility: { default: true },
+  }
+}
+
 export const useSiteStore = defineStore('site', () => {
   const sites = ref<SiteConfig[]>([])
   const currentSite = ref<SiteConfig | null>(null)
   const selectedComponentId = ref<string | null>(null)
 
-async function loadSites() {
-  const all = await loadAllSites()
-  // Migrate old data format
-  for (const site of (all ?? [])) {
-    for (const comp of site.components) {
-      migrateComponent(comp)
+  async function loadSites() {
+    const all = await loadAllSites()
+    for (const site of (all ?? [])) {
+      migrateToPageNode(site)
     }
+    sites.value = all ?? []
   }
-  sites.value = all ?? []
-}
 
   async function createSite(): Promise<string> {
     const id = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
     const site: SiteConfig = {
       id,
       title: '新建站点',
-      components: [],
+      page: createDefaultPageNode(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
       groupClassPresets: [],
@@ -49,7 +57,7 @@ async function loadSites() {
 
   const selectedComponent = computed(() => {
     if (!currentSite.value || !selectedComponentId.value) return null
-    return findComponentById(selectedComponentId.value, currentSite.value.components)
+    return findComponentById(selectedComponentId.value, [currentSite.value.page])
   })
 
   function findComponentById(id: string, nodes: ComponentNode[]): ComponentNode | null {
@@ -65,36 +73,29 @@ async function loadSites() {
     return null
   }
 
-  function removeNode(id: string): ComponentNode | null {
+  function removeNode(id: string, list?: ComponentNode[]): ComponentNode | null {
     if (!currentSite.value) return null
+    if (id === 'page') return null
 
-    // Try root level
-    const rootIndex = currentSite.value.components.findIndex((c) => c.id === id)
-    if (rootIndex >= 0) {
-      return currentSite.value.components.splice(rootIndex, 1)[0]
-    }
+    const arr = list ?? (currentSite.value.page.slots?.default ?? [])
 
-    // Try nested slots
-    for (const component of currentSite.value.components) {
-      if (!component.slots) continue
-      for (const children of Object.values(component.slots)) {
-        const childIndex = children.findIndex((x) => x.id === id)
-        if (childIndex >= 0) {
-          return children.splice(childIndex, 1)[0]
-        }
-        // Try deeper nesting (grandchildren)
-        for (const grandchild of children) {
-          if (!grandchild.slots) continue
-          for (const grandchildren of Object.values(grandchild.slots)) {
-            const gcIndex = grandchildren.findIndex((x) => x.id === id)
-            if (gcIndex >= 0) {
-              return grandchildren.splice(gcIndex, 1)[0]
-            }
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].id === id) {
+        const removed = arr.splice(i, 1)[0]
+        if (selectedComponentId.value === id) selectedComponentId.value = null
+        return removed
+      }
+      const s = arr[i].slots
+      if (s) {
+        for (const children of Object.values(s)) {
+          const found = removeNode(id, children)
+          if (found) {
+            if (selectedComponentId.value === id) selectedComponentId.value = null
+            return found
           }
         }
       }
     }
-
     return null
   }
 
@@ -124,35 +125,40 @@ async function loadSites() {
       }
     }
 
-    const parent = parentId ?? 'root'
-    const idx = index ?? (parent === 'root' ? currentSite.value.components.length : 0)
+    const parent = parentId && parentId !== 'root' ? parentId : 'page'
+    const targetSlot = slotName ?? 'default'
+    const rootChildren = currentSite.value.page.slots?.default ?? []
+    const idx = index ?? (parent === 'page' ? rootChildren.length : 0)
 
-    if (parent === 'root') {
-      currentSite.value.components.splice(idx, 0, node)
+    if (parent === 'page') {
+      rootChildren.splice(idx, 0, node)
       return
     }
 
-    const parentNode = findComponentById(parent, currentSite.value.components)
-    if (parentNode && parentNode.slots && parentNode.slots[slotName ?? 'default']) {
-      parentNode.slots[slotName ?? 'default'].splice(idx, 0, node)
+    const parentNode = findComponentById(parent, [currentSite.value.page])
+    if (parentNode && parentNode.slots && parentNode.slots[targetSlot]) {
+      parentNode.slots[targetSlot].splice(idx, 0, node)
       return
     }
 
-    currentSite.value.components.push(node)
+    rootChildren.push(node)
   }
 
   function moveComponent(sourceId: string, targetParentId: string, targetSlot: string, targetIndex: number) {
     const source = removeNode(sourceId)
     if (!source) return
 
-    if (targetParentId === 'root') {
-      currentSite.value?.components.splice(targetIndex, 0, source)
+    const parent = targetParentId === 'root' ? 'page' : targetParentId
+
+    if (parent === 'page') {
+      const rootChildren = currentSite.value?.page.slots?.default ?? []
+      rootChildren.splice(targetIndex, 0, source)
     } else {
-      const targetParent = findComponentById(targetParentId, currentSite.value?.components ?? [])
+      const targetParent = findComponentById(parent, [currentSite.value?.page!])
       if (targetParent && targetParent.slots && targetParent.slots[targetSlot]) {
         targetParent.slots[targetSlot].splice(targetIndex, 0, source)
       } else {
-        currentSite.value?.components.push(source)
+        currentSite.value?.page.slots?.default.push(source)
       }
     }
 
@@ -161,10 +167,8 @@ async function loadSites() {
 
   function removeComponent(id: string) {
     if (!currentSite.value) return
+    if (id === 'page') return
     removeNode(id)
-    if (selectedComponentId.value === id) {
-      selectedComponentId.value = null
-    }
   }
 
   function selectComponent(id: string | null) {
@@ -174,7 +178,7 @@ async function loadSites() {
   function duplicateComponent(id: string) {
     if (!currentSite.value) return
 
-    const source = findComponentById(id, currentSite.value.components)
+    const source = findComponentById(id, [currentSite.value.page])
     if (!source) return
 
     const copy = structuredClone(toRaw(source))
@@ -192,7 +196,7 @@ async function loadSites() {
 
     reId(copy)
 
-    const parentArray = findParentArray(id, currentSite.value.components)
+    const parentArray = findParentArray(id, [currentSite.value.page])
     if (parentArray) {
       const idx = parentArray.findIndex((c) => c.id === id)
       parentArray.splice(idx + 1, 0, copy)
@@ -213,56 +217,65 @@ async function loadSites() {
     return null
   }
 
-function migrateComponent(node: ComponentNode): ComponentNode {
-  // Migrate styles.class string → classes array (backward compatibility)
-  const styles = node.styles as any
-  if (styles?.class && typeof styles.class === 'string') {
-    if (!node.styles.classes) {
-      node.styles.classes = styles.class.split(' ').filter(Boolean)
+  function migrateComponent(node: ComponentNode): ComponentNode {
+    const styles = node.styles as any
+    if (styles?.class && typeof styles.class === 'string') {
+      if (!node.styles.classes) {
+        node.styles.classes = styles.class.split(' ').filter(Boolean)
+      }
+      delete styles.class
     }
-    delete styles.class
-  }
 
-  // Migrate pt[*].class string → classes array (backward compatibility)
-  if (node.pt) {
-    for (const key of Object.keys(node.pt)) {
-      const ptNode = node.pt[key] as any
-      if (ptNode.class && typeof ptNode.class === 'string') {
-        if (!ptNode.classes) {
-          ptNode.classes = ptNode.class.split(' ').filter(Boolean)
+    if (node.pt) {
+      for (const key of Object.keys(node.pt)) {
+        const ptNode = node.pt[key] as any
+        if (ptNode.class && typeof ptNode.class === 'string') {
+          if (!ptNode.classes) {
+            ptNode.classes = ptNode.class.split(' ').filter(Boolean)
+          }
+          delete ptNode.class
         }
-        delete ptNode.class
       }
     }
-  }
 
-  // Recursively migrate slots
-  if (node.slots) {
-    for (const slotName of Object.keys(node.slots)) {
-      for (const child of node.slots[slotName]) {
-        migrateComponent(child)
+    if (node.slots) {
+      for (const slotName of Object.keys(node.slots)) {
+        for (const child of node.slots[slotName]) {
+          migrateComponent(child)
+        }
       }
     }
+
+    return node
   }
 
-  return node
-}
-
-async function loadCurrentSite(id: string) {
-  const site = await loadSite(id)
-  if (site) {
-    // Migrate old data format
-    for (const comp of site.components) {
-      migrateComponent(comp)
+  function migrateToPageNode(site: any): asserts site is SiteConfig {
+    if ('components' in site && Array.isArray(site.components)) {
+      const oldComponents: ComponentNode[] = site.components
+      for (const comp of oldComponents) {
+        migrateComponent(comp)
+      }
+      const page = createDefaultPageNode()
+      page.slots!.default = oldComponents
+      site.page = page
+      delete site.components
+    } else if (site.page) {
+      migrateComponent(site.page)
     }
-    currentSite.value = site
-    selectedComponentId.value = null
   }
-}
+
+  async function loadCurrentSite(id: string) {
+    const site = await loadSite(id)
+    if (site) {
+      migrateToPageNode(site)
+      currentSite.value = site as SiteConfig
+      selectedComponentId.value = null
+    }
+  }
 
   async function persistCurrentSite() {
     if (currentSite.value) {
-      await saveSite(structuredClone(toRaw(currentSite.value)))
+      await saveSite(JSON.parse(JSON.stringify(currentSite.value)))
     }
   }
 
@@ -277,7 +290,7 @@ async function loadCurrentSite(id: string) {
     duplicateComponent,
     selectComponent,
     loadCurrentSite,
-    loadSite: loadCurrentSite, // alias for backward compatibility
+    loadSite: loadCurrentSite,
     persistCurrentSite,
     loadSites,
     createSite,

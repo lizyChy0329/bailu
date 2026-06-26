@@ -6,7 +6,7 @@
       <SelectButton v-model="activeTab" :options="tabs" option-value="key" option-label="label" class="mb-3" size="small" fluid />
       <PropsPanel v-if="activeTab === 'props'" />
       <SlotsPanel v-if="activeTab === 'slots'" />
-      <StylesPanel v-if="activeTab === 'styles'" />
+      <!-- <StylesPanel v-if="activeTab === 'styles'" /> -->
       <EventsPanel v-if="activeTab === 'events'" />
     </div>
   </div>
@@ -18,14 +18,14 @@ import { getComponentMeta } from '@/editor/registry'
 import SelectButton from 'primevue/selectbutton'
 import PropsPanel from '@/editor/panels/PropsPanel.vue'
 import SlotsPanel from '@/editor/panels/SlotsPanel.vue'
-import StylesPanel from '@/editor/panels/StylesPanel.vue'
+// import StylesPanel from '@/editor/panels/StylesPanel.vue'
 import EventsPanel from '@/editor/panels/EventsPanel.vue'
 const siteStore = useSiteStore()
 const activeTab = ref('props')
 const tabs = [
   { key: 'props', label: '属性' },
   { key: 'slots', label: '插槽' },
-  { key: 'styles', label: '样式' },
+  // { key: 'styles', label: '样式' },
   { key: 'events', label: '事件' },
 ]
 function getComponentLabel(): string {

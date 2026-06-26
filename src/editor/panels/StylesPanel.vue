@@ -78,10 +78,11 @@ function groupClasses(classes: string[]): Record<string, string[]> {
     '边框': [], '字体': [], '布局': [], '其他': [],
   }
   for (const cls of classes) {
+    const clean = cls.replace(/^!/, '')
     let matched = false
     for (const [groupName, prefixes] of Object.entries(classGroups)) {
       if (groupName === '其他') continue
-      if (prefixes.some(p => cls.startsWith(p))) {
+      if (prefixes.some(p => clean.startsWith(p))) {
         result[groupName].push(cls)
         matched = true
         break

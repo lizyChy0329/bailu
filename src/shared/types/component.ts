@@ -1,4 +1,4 @@
-export type ComponentType = 'Card' | 'Image' | 'Button' | 'Panel' | 'ScrollPanel'
+export type ComponentType = 'Card' | 'Image' | 'Button' | 'Panel' | 'ScrollPanel' | 'Page' | 'BackgroundContainer' | 'Heading' | 'Paragraph' | 'Text'
 export interface LayoutBox { width: string; height: string }
 export interface CardProps { [key: string]: unknown }
 export interface ImageProps { src: string; alt: string; width: string; preview: boolean; [key: string]: unknown }

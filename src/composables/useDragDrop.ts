@@ -47,10 +47,10 @@ export function getCompIndex(id: string, parentId: string, slotName: string): nu
   const siteStore = useSiteStore()
   const site = siteStore.currentSite
   if (!site) return -1
-  if (parentId === 'root' || parentId === '__root__') {
-    return site.components.findIndex(c => c.id === id)
+  if (parentId === 'root' || parentId === '__root__' || parentId === 'page') {
+    return (site.page.slots?.default ?? []).findIndex((c: any) => c.id === id)
   }
-  const p = findComponentInTree(parentId, site.components)
+  const p = findComponentInTree(parentId, [site.page])
   if (p?.slots?.[slotName]) return p.slots[slotName].findIndex((c: any) => c.id === id)
   return -1
 }

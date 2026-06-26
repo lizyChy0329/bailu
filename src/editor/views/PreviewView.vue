@@ -5,7 +5,7 @@
         <h2 class="text-lg font-bold">{{ siteStore.currentSite.title }}</h2>
         <Button label="返回编辑" severity="secondary" size="small" text @click="$router.back()" />
       </div>
-      <Renderer :dsl="siteStore.currentSite.components" />
+      <Renderer :dsl="[siteStore.currentSite.page]" />
     </div>
     <div v-else class="text-gray-400 mt-20">加载中...</div>
   </div>

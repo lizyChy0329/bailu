@@ -61,7 +61,7 @@ const contextMenuItems = ref([
   { label: '复制', icon: 'pi pi-copy', command: () => { if (contextTarget.value) siteStore.duplicateComponent(contextTarget.value) } },
 ])
 function onContextMenu(e: MouseEvent, node: any) {
-  if (node.type === 'root' || node.type === 'slot') return
+  if (node.type === 'root' || node.type === 'slot' || node.key === 'page') return
   contextTarget.value = node.key
   contextMenuRef.value?.show(e)
 }
@@ -73,18 +73,22 @@ function buildTreeNodes(components: ComponentNode[], parentId?: string, parentSl
     const children: PrimeTreeNode[] = []
     if (comp.slots) {
       for (const [slotName, slotChildren] of Object.entries(comp.slots)) {
-        children.push({
-          key: `${comp.id}:${slotName}`,
-          label: `[slot: ${slotName}]`,
-          type: 'slot',
-          data: { parentId: comp.id, slotName },
-          children: buildTreeNodes(slotChildren, comp.id, slotName),
-        })
+        if (slotName === 'default') {
+          children.push(...buildTreeNodes(slotChildren, comp.id, slotName))
+        } else {
+          children.push({
+            key: `${comp.id}:${slotName}`,
+            label: `[slot: ${slotName}]`,
+            type: 'slot',
+            data: { parentId: comp.id, slotName },
+            children: buildTreeNodes(slotChildren, comp.id, slotName),
+          })
+        }
       }
     }
     return {
       key: comp.id,
-      label: meta?.label ?? comp.type,
+      label: comp.id === 'page' ? (siteStore.currentSite?.title || '页面') : (meta?.label ?? comp.type),
       type: 'component',
       data: { icon: meta?.icon, type: comp.type, parentId: parentId ?? 'root', slotName: parentSlot ?? 'default' },
       children: children.length > 0 ? children : undefined,
@@ -93,14 +97,7 @@ function buildTreeNodes(components: ComponentNode[], parentId?: string, parentSl
 }
 const treeNodes = computed<PrimeTreeNode[]>(() => {
   if (!siteStore.currentSite) return []
-  const children = buildTreeNodes(siteStore.currentSite.components, '__root__', 'default')
-  return [{
-    key: '__root__',
-    label: siteStore.currentSite.title || '页面',
-    type: 'root',
-    data: { icon: 'pi pi-sitemap' },
-    children: children.length > 0 ? children : undefined,
-  }]
+  return buildTreeNodes([siteStore.currentSite.page], 'root', 'default')
 })
 
 /* 展开 */
@@ -123,7 +120,7 @@ function registerTreeNode(el: HTMLElement | null, node: PrimeTreeNode) {
   const treeNodeEl = el.closest('.p-tree-node') as HTMLElement
   if (!treeNodeEl) return
 
-  if (node.type === 'component') {
+  if (node.type === 'component' && node.key !== 'page') {
     const data = {
       source: 'tree' as const,
       type: 'component' as const,
@@ -166,13 +163,13 @@ onMounted(() => {
 /* Tree 内部节点重排 — PrimeVue 原生 @node-drop */
 function onTreeNodeDrop(event: TreeNodeDropEvent) {
   const sourceId = event.dragNode.key
-  if (!sourceId || sourceId === '__root__') return
+  if (!sourceId || sourceId === 'page') return
 
   let parentId = 'root'
   let slotName = 'default'
   let targetIndex = event.index
 
-  if (!event.dropNode || event.dropNode.key === '__root__') {
+  if (!event.dropNode || event.dropNode.key === 'page' || event.dropNode.key === '__root__') {
     parentId = 'root'
     slotName = 'default'
   } else if (event.dropPosition === 0) {
@@ -203,7 +200,7 @@ function onTreeNodeDrop(event: TreeNodeDropEvent) {
   // 同列表调整
   const srcP = event.dragNode.data?.parentId ?? ''
   const srcS = event.dragNode.data?.slotName ?? ''
-  const sameList = (srcP === parentId || (srcP === '__root__' && parentId === 'root')) && srcS === slotName
+  const sameList = (srcP === parentId || (srcP === '__root__' && parentId === 'root') || (srcP === 'page' && parentId === 'root')) && srcS === slotName
   if (sameList) {
     const si = getCompIndex(sourceId, srcP === '__root__' ? 'root' : srcP, srcS)
     if (si >= 0 && si < targetIndex) targetIndex -= 1
@@ -214,7 +211,6 @@ function onTreeNodeDrop(event: TreeNodeDropEvent) {
 
 /* 选择 */
 function onNodeSelect(node: any) {
-  if (node.type === 'root') { siteStore.selectComponent(null); return }
   if (node.type === 'slot') siteStore.selectComponent(node.data.parentId)
   else siteStore.selectComponent(node.key)
 }

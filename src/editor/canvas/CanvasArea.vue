@@ -2,7 +2,7 @@
   <div ref="canvasRef"
     class="min-h-[600px] rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 relative select-none"
     :class="isDragging ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-900'">
-    <div v-if="rootComponents.length===0 && !isDragging" class="text-center py-20 text-gray-400 text-sm pointer-events-none">从左侧拖拽组件到此处</div>
+    <div v-if="!rootComponents.length && !isDragging" class="text-center py-20 text-gray-400 text-sm pointer-events-none">从左侧拖拽组件到此处</div>
     <div class="space-y-3">
       <div v-for="comp in rootComponents" :key="comp.id"
         :ref="(el:any)=>setComponentRef(comp.id,el as HTMLElement|null)" :data-component-id="comp.id"
@@ -10,7 +10,7 @@
         :class="siteStore.selectedComponentId===comp.id ? 'border-blue-500' : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'"
         @click.stop="siteStore.selectComponent(comp.id)"
         @contextmenu.prevent.stop="onContextMenu(comp.id,$event)">
-        <i class="drag-handle absolute -top-3 -right-3 z-20 text-blue-500 cursor-grab active:cursor-grabbing pi pi-arrows-alt opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-900 rounded-full p-0.5 shadow-sm border" />
+        <i v-if="comp.id !== 'page'" class="drag-handle absolute -top-3 -right-3 z-20 text-blue-500 cursor-grab active:cursor-grabbing pi pi-arrows-alt opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-900 rounded-full p-0.5 shadow-sm border" />
         <Tag :value="getComponentLabel(comp.type)" severity="info"
           class="absolute -top-3 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
         <div class="pointer-events-none"><Renderer :dsl="[comp]" /></div>
@@ -45,7 +45,7 @@ const { dropIndicator, isDragging, registerDropTarget, registerDraggable, trackC
 const renderKey = ref(0)
 
 watch(() => siteStore.selectedComponent?.props, () => { renderKey.value++ }, { deep: true })
-const rootComponents = computed(() => { renderKey.value; return siteStore.currentSite?.components ?? [] })
+const rootComponents = computed(() => { renderKey.value; const page = siteStore.currentSite?.page; return page ? [page] : [] })
 
 /* 右键菜单 */
 const contextMenuRef = ref<any>(null)
@@ -56,6 +56,7 @@ const contextMenuItems = ref([
   { label: '复制', icon: 'pi pi-copy' },
 ])
 function onContextMenu(id: string, event: MouseEvent) {
+  if (id === 'page') return
   siteStore.selectComponent(id); contextTarget.value = id; contextMenuRef.value?.show(event)
 }
 
@@ -82,7 +83,9 @@ function setComponentRef(id: string, el: HTMLElement | null) {
   componentElCache.set(id, el)
 
   const data = { source: 'canvas' as const, type: 'component' as const, compKey: id, parentId: 'root', slotName: 'default' }
-  replaceCleanup(`drag:${key}`, () => registerDraggable(el, data))
+  if (id !== 'page') {
+    replaceCleanup(`drag:${key}`, () => registerDraggable(el, data))
+  }
   replaceCleanup(`drop:${key}`, () => registerDropTarget(el, data, canvasRef.value))
 }
 
